@@ -1,6 +1,6 @@
 module Dispatcher
 
-export DispatchNode, Op, Executor, AsyncExecutor, DispatchContext,
+export DispatchNode, Op, Executor, AsyncExecutor, ParallelExecutor, DispatchContext,
     dependencies
 
 using LightGraphs
