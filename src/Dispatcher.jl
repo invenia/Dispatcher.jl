@@ -3,6 +3,7 @@ module Dispatcher
 export DispatchNode, Op, Executor, AsyncExecutor, ParallelExecutor, DispatchContext,
     dependencies
 
+using Iterators
 using LightGraphs
 
 include("nodes.jl")

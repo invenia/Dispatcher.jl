@@ -1,9 +1,16 @@
+"""
+`DispatchContext` holds the computation graph and `DispatchNode` lookup tables.
+It can also hold arbitrary key-value pairs of metadata.
+"""
 type DispatchContext
     graph
     nodes::NodeSet
     meta::Dict{Any, Any}
 end
 
+"""
+Creates an empty `DispatchContext` with keyword arguments stored in metadata.
+"""
 function DispatchContext(; kwargs...)
     ctx = DispatchContext(DiGraph(), NodeSet(), Dict{Any, Any}())
     for (k, v) in kwargs
@@ -14,7 +21,14 @@ function DispatchContext(; kwargs...)
 end
 
 Base.getindex(ctx::DispatchContext, key) = ctx.meta[key]
+Base.setindex!(ctx::DispatchContext, value, key) = ctx.meta[key] = value
 
+"""
+Adds a `DispatchNode` to the `DispatchContext`'s graph and records
+dependencies.
+
+Returns the `DispatchNode` which was added.
+"""
 function Base.push!(ctx::DispatchContext, node::DispatchNode)
     node_number = push!(ctx.nodes, node)
 
