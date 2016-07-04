@@ -18,24 +18,19 @@ Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
 """
 An `Op` is a `DispatchNode` which wraps a function which is executed when the
 `Op` is run.
-The result of that function call is stored in the `result` `Future`.
+The result of that function call is stored in the `result` `DeferredFuture`.
 Any `DispatchNode`s which appear in the args or kwargs values will be noted as
 dependencies.
 This is the most common `DispatchNode`.
 """
 type Op <: DispatchNode
-    result::Future
+    result::DeferredFuture
     func::Function
     args
     kwargs
 end
 
-# Futures may be tied to the machine they're created on, which might mean that
-# if a future is created on P1, then storing a result in it on P2 and getting
-# the result on P3 may cause the data to go P2->P1->P3. The solution to this is
-# to make the future field Nullable and only initialize the future when the
-# task is about to run.
-Op(func::Function, args...; kwargs...) = Op(Future(), func, args, kwargs)
+Op(func::Function, args...; kwargs...) = Op(DeferredFuture(), func, args, kwargs)
 
 function dependencies(node::Op)
     filter(x->isa(x, DispatchNode), chain(

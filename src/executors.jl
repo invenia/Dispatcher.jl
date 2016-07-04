@@ -13,7 +13,7 @@ Base.run(exec::Executor, node::DispatchNode) = nothing
 
 """
 An Executor-agnostic `Base.run` method for `Op` which stores its function's
-output in its `result` `Future`.
+output in its `result` `DeferredFuture`.
 """
 function Base.run(exec::Executor, op::Op)
     return put!(op.result, op.func(op.args...; op.kwargs...))
