@@ -32,9 +32,9 @@ end
 
 function Base.run(exec::AsyncExecutor, ctx::DispatchContext)
     @sync begin
-        for i = 1:length(ctx.nodes)
+        for i = 1:length(ctx.graph.nodes)
             @async begin
-                node = ctx.nodes[i]
+                node = ctx.graph.nodes[i]
                 fetch_deps!(node)
                 run(exec, node)
             end
@@ -55,9 +55,9 @@ end
 
 function Base.run(exec::ParallelExecutor, ctx::DispatchContext)
     @sync begin
-        for i = 1:length(ctx.nodes)
+        for i = 1:length(ctx.graph.nodes)
             @spawn begin
-                node = ctx.nodes[i]
+                node = ctx.graph.nodes[i]
                 fetch_deps!(node)
                 run(exec, node)
             end
