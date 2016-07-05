@@ -86,7 +86,7 @@ Base.eltype{T<:DispatchNode}(node::T) = IndexNode{T}
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
 
-# fetch_deps!(node::DispatchNode) = nothing
+fetch_deps!(node::DispatchNode) = nothing
 
 """
 Replace all `DispatchNode`s with their results in preparation for calling an

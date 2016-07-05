@@ -37,9 +37,13 @@ function Base.push!(ctx::DispatchContext, node::DispatchNode)
     end
 
     deps = dependencies(node)
-    dep_numbers = findin(deps, ctx.nodes)
 
-    for dep_number in dep_numbers
+    for dep in deps
+        if isa(dep, IndexNode)
+            Base.push!(ctx, dep)
+        end
+
+        dep_number = ctx.nodes[dep]
         add_edge!(ctx.graph, dep_number, node_number)
     end
 
