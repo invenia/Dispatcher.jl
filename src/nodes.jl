@@ -132,8 +132,7 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
         return ns[node]
     else
         new_number = length(ns) + 1
-        ns[new_number] = node
-        ns[node] = new_number
+        ns[node] = new_number  # sets reverse mapping as well
         return new_number
     end
 end
@@ -152,7 +151,11 @@ function Base.findin(nodes, ns::NodeSet)
 end
 
 Base.getindex(ns::NodeSet, id::Int) = ns.id_dict[id]
-Base.setindex!(ns::NodeSet, node::DispatchNode, id::Int) = ns.id_dict[id] = node
-
 Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
-Base.setindex!(ns::NodeSet, id::Int, node::DispatchNode) = ns.node_dict[node] = id
+Base.setindex!(ns::NodeSet, node::DispatchNode, id::Int) = Base.setindex!(ns, id, node)
+
+function Base.setindex!(ns::NodeSet, id::Int, node::DispatchNode)
+    ns.node_dict[node] = id
+    ns.id_dict[id] = node
+    ns
+end

@@ -1,13 +1,21 @@
 module Dispatcher
 
-export DispatchNode, Op, Executor, AsyncExecutor, ParallelExecutor, DispatchContext,
+export DispatchContext,
+    DispatchGraph,
+    DispatchNode,
+    Op,
     dependencies
+
+export Executor,
+    AsyncExecutor,
+    ParallelExecutor
 
 using DeferredFutures
 using Iterators
 using LightGraphs
 
 include("nodes.jl")
+include("graph.jl")
 include("context.jl")
 include("executors.jl")
 
