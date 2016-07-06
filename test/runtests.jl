@@ -24,6 +24,60 @@ import LightGraphs
         @test LightGraphs.ne(g.graph) == 1
         @test collect(LightGraphs.out_neighbors(g.graph, 1)) == [2]
     end
+
+    @testset "Equality" begin
+        #=
+        digraph  {
+            2 -> 1;
+            2 -> 3;
+            3 -> 4;
+            3 -> 5;
+            4 -> 6;
+            5 -> 6;
+            6 -> 7;
+            6 -> 8;
+            9 -> 8;
+            9 -> 10;
+        }
+        =#
+
+        f_nodes = map(1:10) do i
+            let i = copy(i)
+                Op(()->i)
+            end
+        end
+
+        f_edges = [
+            (f_nodes[2], f_nodes[1]),
+            (f_nodes[2], f_nodes[3]),
+            (f_nodes[3], f_nodes[4]),
+            (f_nodes[3], f_nodes[5]),
+            (f_nodes[4], f_nodes[6]),
+            (f_nodes[5], f_nodes[6]),
+            (f_nodes[6], f_nodes[7]),
+            (f_nodes[6], f_nodes[8]),
+            (f_nodes[9], f_nodes[8]),
+            (f_nodes[9], f_nodes[10]),
+        ]
+
+        g1 = DispatchGraph()
+        for node in f_nodes
+            push!(g1, node)
+        end
+        for (parent, child) in f_edges
+            add_edge!(g1, parent, child)
+        end
+
+        g2 = DispatchGraph()
+        for node in reverse(f_nodes)
+            push!(g2, node)
+        end
+        for (parent, child) in reverse(f_edges)
+            add_edge!(g2, parent, child)
+        end
+
+        @test g1 == g2
+    end
 end
 
 @testset "Dispatcher" begin

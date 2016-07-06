@@ -11,7 +11,8 @@ no dependencies.
 """
 dependencies(node::DispatchNode) = ()
 
-# compare DispatchNodes only by object id; they must refer to the same memory
+# fallback compare DispatchNodes only by object id
+# avoids definition for Base.AbstractRemoteRef
 Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
 
 
@@ -23,7 +24,7 @@ Any `DispatchNode`s which appear in the args or kwargs values will be noted as
 dependencies.
 This is the most common `DispatchNode`.
 """
-type Op <: DispatchNode
+@auto_hash_equals type Op <: DispatchNode
     result::DeferredFuture
     func::Function
     args
@@ -60,7 +61,7 @@ run(exec, ctx)
 In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
 `Op` at index 1 and index 2 respectively.
 """
-type IndexNode{T<:DispatchNode} <: DispatchNode
+@auto_hash_equals type IndexNode{T<:DispatchNode} <: DispatchNode
     node::T
     index::Int
 end
@@ -149,6 +150,8 @@ function Base.findin(nodes, ns::NodeSet)
 
     return numbers
 end
+
+nodes(ns::NodeSet) = keys(ns.node_dict)
 
 Base.getindex(ns::NodeSet, id::Int) = ns.id_dict[id]
 Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
