@@ -151,6 +151,7 @@ function Base.findin(nodes, ns::NodeSet)
     return numbers
 end
 
+"Return an iterable of all nodes stored in the `NodeSet`"
 nodes(ns::NodeSet) = keys(ns.node_dict)
 
 Base.getindex(ns::NodeSet, id::Int) = ns.id_dict[id]

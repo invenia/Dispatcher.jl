@@ -22,6 +22,7 @@ function LightGraphs.add_edge!(g::DispatchGraph, parent::DispatchNode, child::Di
     add_edge!(g.graph, g.nodes[parent], g.nodes[child])
 end
 
+"Return an iterable of all nodes stored in the `DispatchGraph`"
 nodes(g::DispatchGraph) = nodes(g.nodes)
 
 function LightGraphs.in_neighbors(g::DispatchGraph, node::DispatchNode)
@@ -52,7 +53,6 @@ function Base.:(==)(g1::DispatchGraph, g2::DispatchGraph)
 
     return true
 end
-
 
 function ancestor_subgraph(g::DispatchGraph, endpoints::AbstractArray{Int})
     keeps = Set{Int}()
@@ -97,6 +97,7 @@ function ancestor_subgraph(g::DispatchGraph, endpoints::AbstractArray{Int})
     return new_g
 end
 
+"Return a new `DispatchGraph` containing only `endpoints` and the ancestors of `endpoints`"
 function ancestor_subgraph{T<:DispatchNode}(g::DispatchGraph, endpoints::AbstractArray{T})
     endpoint_ids = Int[g.nodes[e] for e in endpoints]
 
