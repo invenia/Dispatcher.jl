@@ -12,6 +12,7 @@ export Executor,
     ParallelExecutor
 
 using AutoHashEquals
+using DataStructures
 using DeferredFutures
 using Iterators
 using LightGraphs

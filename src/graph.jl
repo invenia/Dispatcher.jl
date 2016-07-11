@@ -52,3 +52,53 @@ function Base.:(==)(g1::DispatchGraph, g2::DispatchGraph)
 
     return true
 end
+
+
+function ancestor_subgraph(g::DispatchGraph, endpoints::AbstractArray{Int})
+    keeps = Set{Int}()
+    to_visit = Stack(Int)
+
+    for v in endpoints
+        push!(to_visit, v)
+    end
+
+    while length(to_visit) > 0
+        v = pop!(to_visit)
+
+        for vp in in_neighbors(g.graph, v)
+            if !(vp in keeps)
+                push!(keeps, vp)
+                push!(to_visit, vp)
+            end
+        end
+
+        push!(keeps, v)
+    end
+
+    new_g = DispatchGraph()
+
+    add_vertices!(new_g.graph, length(keeps))
+    for keep_id in keeps
+        push!(new_g.nodes, g.nodes[keep_id])
+    end
+
+    for keep_id in keeps
+        for vc in out_neighbors(g.graph, keep_id)
+            if vc in keeps
+                add_edge!(
+                    new_g.graph,
+                    new_g.nodes[g.nodes[keep_id]],
+                    new_g.nodes[g.nodes[vc]],
+                )
+            end
+        end
+    end
+
+    return new_g
+end
+
+function ancestor_subgraph{T<:DispatchNode}(g::DispatchGraph, endpoints::AbstractArray{T})
+    endpoint_ids = Int[g.nodes[e] for e in endpoints]
+
+    return ancestor_subgraph(g, endpoint_ids)
+end

@@ -78,6 +78,71 @@ import LightGraphs
 
         @test g1 == g2
     end
+
+    @testset "Ancestor subgraph" begin
+        #=
+        digraph  {
+            2 -> 1;
+            2 -> 3;
+            3 -> 4;
+            3 -> 5;
+            4 -> 6;
+            5 -> 6;
+            6 -> 7;
+            6 -> 8;
+            9 -> 8;
+            9 -> 10;
+        }
+        =#
+
+        f_nodes = map(1:10) do i
+            let i = copy(i)
+                Op(()->i)
+            end
+        end
+
+        f_edges = [
+            (f_nodes[2], f_nodes[1]),
+            (f_nodes[2], f_nodes[3]),
+            (f_nodes[3], f_nodes[4]),
+            (f_nodes[3], f_nodes[5]),
+            (f_nodes[4], f_nodes[6]),
+            (f_nodes[5], f_nodes[6]),
+            (f_nodes[6], f_nodes[7]),
+            (f_nodes[6], f_nodes[8]),
+            (f_nodes[9], f_nodes[8]),
+            (f_nodes[9], f_nodes[10]),
+        ]
+
+        g = DispatchGraph()
+        for node in f_nodes
+            push!(g, node)
+        end
+        for (parent, child) in f_edges
+            add_edge!(g, parent, child)
+        end
+
+        g_sliced_truth = DispatchGraph()
+        push!(g_sliced_truth, f_nodes[9])
+        push!(g_sliced_truth, f_nodes[10])
+        add_edge!(g_sliced_truth, f_nodes[9], f_nodes[10])
+
+        @test Dispatcher.ancestor_subgraph(g, [f_nodes[9], f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.ancestor_subgraph(g, [9, 10]) == g_sliced_truth
+        @test Dispatcher.ancestor_subgraph(g, [f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.ancestor_subgraph(g, [10]) == g_sliced_truth
+
+        g_sliced_truth = DispatchGraph()
+        for node in f_nodes[1:7]
+            push!(g_sliced_truth, node)
+        end
+        for (parent, child) in f_edges[1:7]
+            add_edge!(g_sliced_truth, parent, child)
+        end
+
+        @test Dispatcher.ancestor_subgraph(g, [f_nodes[1], f_nodes[7]]) == g_sliced_truth
+        @test Dispatcher.ancestor_subgraph(g, [f_nodes[7]]) != g_sliced_truth
+    end
 end
 
 @testset "Dispatcher" begin
