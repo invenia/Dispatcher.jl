@@ -150,6 +150,7 @@ end
         @testset "Example" begin
             ctx = DispatchContext()
             exec = AsyncExecutor()
+            comm = Channel{Float64}(2)
 
             op = Op(()->3)
             @test isempty(dependencies(op))
@@ -169,15 +170,22 @@ end
             @test c in dependencies(op)
             d = push!(ctx, op)
 
-            op = Op((x)->(rand(Int, x), rand(UInt, x)), c)
+            op = Op((x)->(factorial(x), factorial(2x)), c)
             @test c in dependencies(op)
             e, f = push!(ctx, op)
 
-            op = Op((x)->mean(x), f)
+            op = Op((x)->put!(comm, x / 2), f)
             @test f in dependencies(op)
             g = push!(ctx, op)
 
+            result_truth = factorial(2 * (max(3, 4))) / 2
+
             run(exec, ctx)
+
+            @test isready(comm)
+            @test take!(comm) === result_truth
+            @test !isready(comm)
+            close(comm)
         end
     end
 
@@ -186,6 +194,7 @@ end
             @testset "Example" begin
                 ctx = DispatchContext()
                 exec = ParallelExecutor()
+                comm = Channel{Float64}(2)
 
                 op = Op(()->3)
                 @test isempty(dependencies(op))
@@ -205,15 +214,22 @@ end
                 @test c in dependencies(op)
                 d = push!(ctx, op)
 
-                op = Op((x)->(rand(Int, x), rand(UInt, x)), c)
+                op = Op((x)->(factorial(x), factorial(2x)), c)
                 @test c in dependencies(op)
                 e, f = push!(ctx, op)
 
-                op = Op((x)->mean(x), f)
+                op = Op((x)->put!(comm, x / 2), f)
                 @test f in dependencies(op)
                 g = push!(ctx, op)
 
+                result_truth = factorial(2 * (max(3, 4))) / 2
+
                 run(exec, ctx)
+
+                @test isready(comm)
+                @test take!(comm) === result_truth
+                @test !isready(comm)
+                close(comm)
             end
         end
 
@@ -221,6 +237,7 @@ end
             @testset "Example" begin
                 pnums = addprocs(1)
                 @everywhere using Dispatcher
+                comm = RemoteChannel(()->Channel{Float64}(2))
 
                 try
                     ctx = DispatchContext()
@@ -244,15 +261,22 @@ end
                     @test c in dependencies(op)
                     d = push!(ctx, op)
 
-                    op = Op((x)->(rand(Int, x), rand(UInt, x)), c)
+                    op = Op((x)->(factorial(x), factorial(2x)), c)
                     @test c in dependencies(op)
                     e, f = push!(ctx, op)
 
-                    op = Op((x)->mean(x), f)
+                    op = Op((x)->put!(comm, x / 2), f)
                     @test f in dependencies(op)
                     g = push!(ctx, op)
 
+                    result_truth = factorial(2 * (max(3, 4))) / 2
+
                     run(exec, ctx)
+
+                    @test isready(comm)
+                    @test take!(comm) === result_truth
+                    @test !isready(comm)
+                    close(comm)
                 finally
                     rmprocs(pnums)
                 end
@@ -263,6 +287,7 @@ end
             @testset "Example" begin
                 pnums = addprocs(2)
                 @everywhere using Dispatcher
+                comm = RemoteChannel(()->Channel{Float64}(2))
 
                 try
                     ctx = DispatchContext()
@@ -286,15 +311,22 @@ end
                     @test c in dependencies(op)
                     d = push!(ctx, op)
 
-                    op = Op((x)->(rand(Int, x), rand(UInt, x)), c)
+                    op = Op((x)->(factorial(x), factorial(2x)), c)
                     @test c in dependencies(op)
                     e, f = push!(ctx, op)
 
-                    op = Op((x)->mean(x), f)
+                    op = Op((x)->put!(comm, x / 2), f)
                     @test f in dependencies(op)
                     g = push!(ctx, op)
 
+                    result_truth = factorial(2 * (max(3, 4))) / 2
+
                     run(exec, ctx)
+
+                    @test isready(comm)
+                    @test take!(comm) === result_truth
+                    @test !isready(comm)
+                    close(comm)
                 finally
                     rmprocs(pnums)
                 end
