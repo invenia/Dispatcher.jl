@@ -7,6 +7,8 @@ type DispatchContext
     meta::Dict{Any, Any}
 end
 
+Base.copy(ctx::DispatchContext) = DispatchContext(ctx.graph, ctx.meta)
+
 """
 Creates an empty `DispatchContext` with keyword arguments stored in metadata.
 """

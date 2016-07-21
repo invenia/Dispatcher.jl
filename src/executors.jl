@@ -19,6 +19,12 @@ function Base.run(exec::Executor, op::Op)
     return put!(op.result, op.func(op.args...; op.kwargs...))
 end
 
+function Base.run(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{DispatchNode})
+    reduced_ctx = copy(ctx)
+    reduced_ctx.graph = ancestor_subgraph(ctx.graph, nodes)
+    return Base.run(exec, reduced_ctx)
+end
+
 
 """
 `AsyncExecutor` is an Executor which spawns a local Julia `Task` for each
