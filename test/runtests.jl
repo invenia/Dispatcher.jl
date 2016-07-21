@@ -246,7 +246,7 @@ end
 
             result_truth = factorial(2 * (max(3, 4))) / 2
 
-            run(exec, ctx)
+            run!(exec, ctx)
 
             @test isready(comm)
             @test take!(comm) === result_truth
@@ -290,7 +290,7 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                run(exec, ctx)
+                run!(exec, ctx)
 
                 @test isready(comm)
                 @test take!(comm) === result_truth
@@ -337,7 +337,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    run(exec, ctx)
+                    run!(exec, ctx)
 
                     @test isready(comm)
                     @test take!(comm) === result_truth
@@ -387,7 +387,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    run(exec, ctx)
+                    run!(exec, ctx)
 
                     @test isready(comm)
                     @test take!(comm) === result_truth

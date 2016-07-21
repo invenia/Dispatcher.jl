@@ -9,7 +9,8 @@ export DispatchContext,
 
 export Executor,
     AsyncExecutor,
-    ParallelExecutor
+    ParallelExecutor,
+    run!
 
 using AutoHashEquals
 using DataStructures
