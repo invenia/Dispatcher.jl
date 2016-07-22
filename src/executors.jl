@@ -12,17 +12,42 @@ A blank method for no-op nodes or nodes which simply reference other nodes.
 run!(exec::Executor, node::DispatchNode) = nothing
 
 """
+A blank method for no-op nodes or nodes which simply reference other nodes.
+"""
+Base.run(exec::Executor, node::DispatchNode) = nothing
+
+"""
 An Executor-agnostic `run!` method for `Op` which stores its function's
 output in its `result` `DeferredFuture`.
 """
 function run!(exec::Executor, op::Op)
-    return put!(op.result, op.func(op.args...; op.kwargs...))
+    return put!(op.result, run(exec, op))
+end
+
+function Base.run(exec::Executor, op::Op)
+    return op.func(op.args...; op.kwargs...)
 end
 
 function run!(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{DispatchNode})
     reduced_ctx = copy(ctx)
     reduced_ctx.graph = ancestor_subgraph(ctx.graph, nodes)
-    return run!(exec, reduced_ctx)
+    run!(exec, reduced_ctx)
+
+    return nodes
+end
+
+function Base.run(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{DispatchNode})
+    node_nums = Int[ctx.graph.nodes[node] for node in nodes]
+    reduced_ctx = deepcopy(ctx)
+    new_nodes = DispatchNode[reduced_ctx.graph.nodes[node_num] for node_num in node_nums]
+    reduced_ctx.graph = ancestor_subgraph(reduced_ctx.graph, nodes)
+    run!(exec, reduced_ctx)
+
+    return new_nodes
+end
+
+function Base.run(exec::Executor, ctx::DispatchContext)
+    return run!(exec, deepcopy(ctx))
 end
 
 
@@ -39,13 +64,17 @@ end
 function run!(exec::AsyncExecutor, ctx::DispatchContext)
     @sync begin
         for i = 1:length(ctx.graph.nodes)
-            @async begin
-                node = ctx.graph.nodes[i]
-                fetch_deps!(node)
-                run!(exec, node)
+            if !isready(ctx.graph.nodes[i])
+                @async begin
+                    node = ctx.graph.nodes[i]
+                    fetch_deps!(node)
+                    run!(exec, node)
+                end
             end
         end
     end
+
+    return ctx
 end
 
 """
@@ -62,11 +91,15 @@ end
 function run!(exec::ParallelExecutor, ctx::DispatchContext)
     @sync begin
         for i = 1:length(ctx.graph.nodes)
-            @spawn begin
-                node = ctx.graph.nodes[i]
-                fetch_deps!(node)
-                run!(exec, node)
+            if !isready(ctx.graph.nodes[i])
+                @spawn begin
+                    node = ctx.graph.nodes[i]
+                    fetch_deps!(node)
+                    run!(exec, node)
+                end
             end
         end
     end
+
+    return ctx
 end
