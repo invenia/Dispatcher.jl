@@ -72,11 +72,20 @@ import LightGraphs
         for node in reverse(f_nodes)
             push!(g2, node)
         end
+        @test g1 != g2
         for (parent, child) in reverse(f_edges)
+            @test g1 != g2
             add_edge!(g2, parent, child)
         end
 
         @test g1 == g2
+
+        # duplicate node insertion is a no-op
+        push!(g2, f_nodes[1])
+        @test g1 == g2
+
+        add_edge!(g2, f_nodes[2], f_nodes[10])
+        @test g1 != g2
     end
 
     @testset "Ancestor subgraph" begin
