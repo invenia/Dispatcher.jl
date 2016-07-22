@@ -36,7 +36,7 @@ function run!(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{Dispatc
     return nodes
 end
 
-function Base.run(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{DispatchNode})
+function Base.run{T<:DispatchNode}(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{T})
     node_nums = Int[ctx.graph.nodes[node] for node in nodes]
     reduced_ctx = deepcopy(ctx)
     new_nodes = DispatchNode[reduced_ctx.graph.nodes[node_num] for node_num in node_nums]

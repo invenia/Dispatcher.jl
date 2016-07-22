@@ -262,6 +262,39 @@ end
             @test !isready(comm)
             close(comm)
         end
+
+        @testset "Partial" begin
+            # this sort of stateful behaviour outside of the node graph is not recommended
+            # but we're using it here because it makes testing easy
+
+            ctx = DispatchContext()
+            exec = AsyncExecutor()
+            comm = Channel{Float64}(3)
+
+            op = Op(()->(put!(comm, 4); comm))
+            a = push!(ctx, op)
+
+            op = Op(a) do ch
+                x = take!(ch)
+                put!(ch, x + 1)
+            end
+            b = push!(ctx, op)
+
+            op = Op(a) do ch
+                x = take!(ch)
+                put!(ch, x + 2)
+            end
+            c = push!(ctx, op)
+
+            bret, = run!(exec, ctx, [b])
+            @test b === bret
+
+            @test fetch(comm) == 5
+
+            # run remainder of graph
+            run!(exec, ctx)
+            @test fetch(comm) == 7
+        end
     end
 
     @testset "Parallel" begin
