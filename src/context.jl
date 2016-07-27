@@ -36,6 +36,7 @@ function Base.push!(ctx::DispatchContext, node::DispatchNode)
     deps = dependencies(node)
 
     for dep in deps
+        # `IndexNode`s are not automatically stored in the context
         if isa(dep, IndexNode)
             Base.push!(ctx, dep)
         end

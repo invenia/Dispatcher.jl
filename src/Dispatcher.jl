@@ -3,6 +3,7 @@ module Dispatcher
 export DispatchContext,
     DispatchGraph,
     DispatchNode,
+    DataNode,
     Op,
     add_edge!,
     dependencies
@@ -10,6 +11,7 @@ export DispatchContext,
 export Executor,
     AsyncExecutor,
     ParallelExecutor,
+    dispatch!,
     run!
 
 using AutoHashEquals

@@ -136,10 +136,10 @@ import LightGraphs
         push!(g_sliced_truth, f_nodes[10])
         add_edge!(g_sliced_truth, f_nodes[9], f_nodes[10])
 
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[9], f_nodes[10]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [9, 10]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[10]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[9], f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [9, 10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [10]) == g_sliced_truth
 
         g_sliced_truth = DispatchGraph()
         for node in f_nodes[1:7]
@@ -149,8 +149,8 @@ import LightGraphs
             add_edge!(g_sliced_truth, parent, child)
         end
 
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[1], f_nodes[7]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[7]]) != g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[1], f_nodes[7]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[7]]) != g_sliced_truth
     end
 
     @testset "Descendant subgraph" begin
@@ -206,17 +206,17 @@ import LightGraphs
         add_edge!(g_sliced_truth, f_nodes[9], f_nodes[10])
         add_edge!(g_sliced_truth, f_nodes[2], f_nodes[1])
 
-        @test Dispatcher.descendant_subgraph(g, [f_nodes[6]]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [6]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [f_nodes[6], f_nodes[5]]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [6, 5]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Op[], [f_nodes[6]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [6]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Op[], [f_nodes[6], f_nodes[5]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [6, 5]) == g_sliced_truth
 
         g_sliced_truth = DispatchGraph()
         for i = [1,7,8,10]
             push!(g_sliced_truth, f_nodes[i])
         end
 
-        @test Dispatcher.descendant_subgraph(g, [1, 7, 8, 10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [1, 7, 8, 10]) == g_sliced_truth
     end
 end
 
@@ -292,7 +292,7 @@ end
             @test fetch(comm) == 5
 
             # run remainder of graph
-            run!(exec, ctx)
+            run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
             @test fetch(comm) == 7
         end
     end
