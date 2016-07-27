@@ -3,7 +3,7 @@
     - osx
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.clone("https://github.com/invenia/DeferredFutures.jl"); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
 
 
 "Julia nightly, Linux (amd64)":
@@ -12,7 +12,7 @@
     - amd64
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.clone("https://github.com/invenia/DeferredFutures.jl"); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"]; coverage=true)'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"]; coverage=true)'
     - julia --depwarn=no -e 'cd(Pkg.dir(ENV["PKG_NAME"])); Pkg.add("Coverage"); Pkg.checkout("Coverage"); using Coverage; Codecov.submit_local(process_folder(); branch=ENV["CI_BUILD_REF_NAME"], commit=ENV["CI_BUILD_REF"], job=ENV["CI_BUILD_ID"], service="gitlab")'
 
 
@@ -22,4 +22,4 @@
     - i386
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.clone("https://github.com/invenia/DeferredFutures.jl"); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'

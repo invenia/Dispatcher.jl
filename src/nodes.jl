@@ -5,6 +5,11 @@ the `dependencies` function.
 """
 abstract DispatchNode <: Base.AbstractRemoteRef
 
+# default methods assume there is no synchronization involved in retrieving
+# data
+Base.isready(dn::DispatchNode) = true
+Base.wait(dn::DispatchNode) = nothing
+
 """
 Unless given a `dependencies` method, a `DispatchNode` will be assumed to have
 no dependencies.
@@ -15,6 +20,14 @@ dependencies(node::DispatchNode) = ()
 # avoids definition for Base.AbstractRemoteRef
 Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
 
+"""
+A `DataNode` is a `DispatchNode` which wraps a piece of static data.
+"""
+type DataNode{T} <: DispatchNode
+    data::T
+end
+
+Base.fetch(dn::DataNode) = dn.data
 
 """
 An `Op` is a `DispatchNode` which wraps a function which is executed when the
@@ -87,31 +100,6 @@ Base.eltype{T<:DispatchNode}(node::T) = IndexNode{T}
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
 
-fetch_deps!(node::DispatchNode) = nothing
-
-"""
-Replace all `DispatchNode`s with their results in preparation for calling an
-`Op`'s function.
-"""
-function fetch_deps!(node::Op)
-    node.args = map(node.args) do arg
-        if isa(arg, DispatchNode)
-            return fetch(arg)
-        else
-            return arg
-        end
-    end
-
-    node.kwargs = map(node.kwargs) do kwarg
-        if isa(kwarg.second, DispatchNode)
-            return (kwarg.first => fetch(kwarg.second))
-        else
-            return kwarg
-        end
-    end
-end
-
-
 """
 `NodeSet` stores a correspondence between intances of `DispatchNode`s and
 the `Int` indices used by LightGraphs to denote vertices. It is only used by
@@ -133,7 +121,7 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
         return ns[node]
     else
         new_number = length(ns) + 1
-        ns[node] = new_number  # sets reverse mapping as well
+        ns[new_number] = node  # sets reverse mapping as well
         return new_number
     end
 end
@@ -156,9 +144,17 @@ nodes(ns::NodeSet) = keys(ns.node_dict)
 
 Base.getindex(ns::NodeSet, id::Int) = ns.id_dict[id]
 Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
-Base.setindex!(ns::NodeSet, node::DispatchNode, id::Int) = Base.setindex!(ns, id, node)
 
-function Base.setindex!(ns::NodeSet, id::Int, node::DispatchNode)
+# there is no setindex!(::NodeSet, ::Int, ::DispatchNode) because of the way
+# LightGraphs stores graphs as contiguous ranges of integers.
+
+"Replaces the node corresponding to `id` with `node`"
+function Base.setindex!(ns::NodeSet, node::DispatchNode, id::Int)
+    if id in keys(ns.id_dict)
+        old_node = ns.id_dict[id]
+        delete!(ns.node_dict, old_node)
+    end
+
     ns.node_dict[node] = id
     ns.id_dict[id] = node
     ns

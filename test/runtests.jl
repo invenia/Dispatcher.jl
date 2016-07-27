@@ -72,11 +72,20 @@ import LightGraphs
         for node in reverse(f_nodes)
             push!(g2, node)
         end
+        @test g1 != g2
         for (parent, child) in reverse(f_edges)
+            @test g1 != g2
             add_edge!(g2, parent, child)
         end
 
         @test g1 == g2
+
+        # duplicate node insertion is a no-op
+        push!(g2, f_nodes[1])
+        @test g1 == g2
+
+        add_edge!(g2, f_nodes[2], f_nodes[10])
+        @test g1 != g2
     end
 
     @testset "Ancestor subgraph" begin
@@ -127,10 +136,10 @@ import LightGraphs
         push!(g_sliced_truth, f_nodes[10])
         add_edge!(g_sliced_truth, f_nodes[9], f_nodes[10])
 
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[9], f_nodes[10]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [9, 10]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[10]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[9], f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [9, 10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[10]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [10]) == g_sliced_truth
 
         g_sliced_truth = DispatchGraph()
         for node in f_nodes[1:7]
@@ -140,8 +149,8 @@ import LightGraphs
             add_edge!(g_sliced_truth, parent, child)
         end
 
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[1], f_nodes[7]]) == g_sliced_truth
-        @test Dispatcher.ancestor_subgraph(g, [f_nodes[7]]) != g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[1], f_nodes[7]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, [f_nodes[7]]) != g_sliced_truth
     end
 
     @testset "Descendant subgraph" begin
@@ -197,17 +206,17 @@ import LightGraphs
         add_edge!(g_sliced_truth, f_nodes[9], f_nodes[10])
         add_edge!(g_sliced_truth, f_nodes[2], f_nodes[1])
 
-        @test Dispatcher.descendant_subgraph(g, [f_nodes[6]]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [6]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [f_nodes[6], f_nodes[5]]) == g_sliced_truth
-        @test Dispatcher.descendant_subgraph(g, [6, 5]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Op[], [f_nodes[6]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [6]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Op[], [f_nodes[6], f_nodes[5]]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [6, 5]) == g_sliced_truth
 
         g_sliced_truth = DispatchGraph()
         for i = [1,7,8,10]
             push!(g_sliced_truth, f_nodes[i])
         end
 
-        @test Dispatcher.descendant_subgraph(g, [1, 7, 8, 10]) == g_sliced_truth
+        @test Dispatcher.subgraph(g, Int[], [1, 7, 8, 10]) == g_sliced_truth
     end
 end
 
@@ -246,12 +255,45 @@ end
 
             result_truth = factorial(2 * (max(3, 4))) / 2
 
-            run(exec, ctx)
+            run!(exec, ctx)
 
             @test isready(comm)
             @test take!(comm) === result_truth
             @test !isready(comm)
             close(comm)
+        end
+
+        @testset "Partial" begin
+            # this sort of stateful behaviour outside of the node graph is not recommended
+            # but we're using it here because it makes testing easy
+
+            ctx = DispatchContext()
+            exec = AsyncExecutor()
+            comm = Channel{Float64}(3)
+
+            op = Op(()->(put!(comm, 4); comm))
+            a = push!(ctx, op)
+
+            op = Op(a) do ch
+                x = take!(ch)
+                put!(ch, x + 1)
+            end
+            b = push!(ctx, op)
+
+            op = Op(a) do ch
+                x = take!(ch)
+                put!(ch, x + 2)
+            end
+            c = push!(ctx, op)
+
+            bret, = run!(exec, ctx, [b])
+            @test b === bret
+
+            @test fetch(comm) == 5
+
+            # run remainder of graph
+            run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
+            @test fetch(comm) == 7
         end
     end
 
@@ -290,7 +332,7 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                run(exec, ctx)
+                run!(exec, ctx)
 
                 @test isready(comm)
                 @test take!(comm) === result_truth
@@ -337,7 +379,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    run(exec, ctx)
+                    run!(exec, ctx)
 
                     @test isready(comm)
                     @test take!(comm) === result_truth
@@ -387,7 +429,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    run(exec, ctx)
+                    run!(exec, ctx)
 
                     @test isready(comm)
                     @test take!(comm) === result_truth

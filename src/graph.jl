@@ -78,71 +78,81 @@ function Base.:(==)(g1::DispatchGraph, g2::DispatchGraph)
     return true
 end
 
-function descendant_subgraph(g::DispatchGraph, roots::AbstractArray{Int})
-    rootset = Set{Int}(roots)
-    discards = Set{Int}()
+"""
+Return a new `DispatchGraph` containing everything "between" `roots` and
+`endpoints`, plus everything else necessary to generate `endpoints`.
+
+More precisely, only `endpoints` and the ancestors of `endpoints`, without any
+nodes which are ancestors of `endpoints` only through `roots`. If `endpoints`
+is empty, return a new `DispatchGraph` containing only `roots`, and nodes
+which are decendents from nodes which nodes which are not descendants of
+`roots`.
+"""
+function subgraph{T<:DispatchNode, S<:DispatchNode}(
+    g::DispatchGraph,
+    endpoints::AbstractArray{T},
+    inputs::AbstractArray{S}=DispatchNode[],
+)
+    endpoint_ids = Int[g.nodes[e] for e in endpoints]
+    input_ids = Int[g.nodes[i] for i in inputs]
+
+    return subgraph(g, endpoint_ids, input_ids)
+end
+
+function subgraph(
+    g::DispatchGraph,
+    endpoints::AbstractArray{Int},
+    roots::AbstractArray{Int}=Int[],
+)
     to_visit = Stack(Int)
 
-    for v in roots
-        for vp in in_neighbors(g.graph, v)
-            push!(to_visit, vp)
-        end
-    end
+    if isempty(endpoints)
+        rootset = Set{Int}(roots)
+        discards = Set{Int}()
 
-    while length(to_visit) > 0
-        v = pop!(to_visit)
-
-        if all((vc in rootset || vc in discards) for vc in out_neighbors(g.graph, v))
-            push!(discards, v)
-
+        for v in roots
             for vp in in_neighbors(g.graph, v)
                 push!(to_visit, vp)
             end
         end
-    end
 
-    keeps = setdiff(1:nv(g.graph), discards)
+        while length(to_visit) > 0
+            v = pop!(to_visit)
 
-    return induced_subgraph(g, keeps)
-end
+            if all((vc in rootset || vc in discards) for vc in out_neighbors(g.graph, v))
+                push!(discards, v)
 
-function ancestor_subgraph(g::DispatchGraph, endpoints::AbstractArray{Int})
-    keeps = Set{Int}()
-    to_visit = Stack(Int)
-
-    for v in endpoints
-        push!(to_visit, v)
-    end
-
-    while length(to_visit) > 0
-        v = pop!(to_visit)
-
-        for vp in in_neighbors(g.graph, v)
-            if !(vp in keeps)
-                push!(keeps, vp)
-                push!(to_visit, vp)
+                for vp in in_neighbors(g.graph, v)
+                    push!(to_visit, vp)
+                end
             end
         end
 
-        push!(keeps, v)
+        keeps = setdiff(1:nv(g.graph), discards)
+    else
+        keeps = Set{Int}()
+
+        union!(keeps, roots)
+
+        for v in endpoints
+            if !(v in keeps)
+                push!(to_visit, v)
+            end
+        end
+
+        while length(to_visit) > 0
+            v = pop!(to_visit)
+
+            for vp in in_neighbors(g.graph, v)
+                if !(vp in keeps)
+                    push!(keeps, vp)
+                    push!(to_visit, vp)
+                end
+            end
+
+            push!(keeps, v)
+        end
     end
 
     return induced_subgraph(g, keeps)
-end
-
-"""
-Return a new `DispatchGraph` containing only `roots`, and nodes which are decendents from
-nodes which nodes which are not descendants of `roots`
-"""
-function descendant_subgraph{T<:DispatchNode}(g::DispatchGraph, roots::AbstractArray{T})
-    root_ids = Int[g.nodes[r] for r in roots]
-
-    return descendant_subgraph(g, root_ids)
-end
-
-"Return a new `DispatchGraph` containing only `endpoints` and the ancestors of `endpoints`"
-function ancestor_subgraph{T<:DispatchNode}(g::DispatchGraph, endpoints::AbstractArray{T})
-    endpoint_ids = Int[g.nodes[e] for e in endpoints]
-
-    return ancestor_subgraph(g, endpoint_ids)
 end
