@@ -333,14 +333,29 @@ end
                 end
                 c = add!(ctx, op)
 
-                bret, = run!(exec, ctx, [b])
-                @test b === bret
+                b_ret, = run!(exec, ctx, [b])
+                @test b === b_ret
 
                 @test fetch(comm) == 5
 
                 # run remainder of graph
                 run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
                 @test fetch(comm) == 7
+            end
+
+            @testset "No cycles allowed" begin
+                ctx = DispatchContext()
+                exec = AsyncExecutor()
+
+                a = Op(identity, 3)
+                b = Op(identity, a)
+                a.args = (b,)
+
+                @test_throws Exception begin
+                    add!(ctx, a)
+                    add!(ctx, b)
+                    run!(exec, ctx)
+                end
             end
         end
 

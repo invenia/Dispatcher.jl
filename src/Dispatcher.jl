@@ -26,6 +26,8 @@ using DeferredFutures
 using Iterators
 using LightGraphs
 
+abstract DispatcherError
+
 include("nodes.jl")
 include("graph.jl")
 include("context.jl")

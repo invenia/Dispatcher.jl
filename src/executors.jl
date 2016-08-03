@@ -15,6 +15,10 @@ run!(exec, context)
 """
 abstract Executor
 
+immutable ExecutorError{T} <: DispatcherError
+    msg::T
+end
+
 """
 A blank method for no-op nodes or nodes which simply reference other nodes.
 """
@@ -95,6 +99,12 @@ Users will almost never want to add methods to this function for different
 `Executor` subtypes; overriding `dispatch!` is the preferred pattern.
 """
 function run!(exec::Executor, ctx::DispatchContext)
+    if is_cyclic(ctx.graph.graph)
+        throw(ExecutorError(
+            "Dispatcher can only run graphs without circular dependencies",
+        ))
+    end
+
     prepare!(exec, ctx)
     dispatch!(exec, ctx)
 end
