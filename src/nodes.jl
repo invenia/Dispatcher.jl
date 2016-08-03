@@ -64,7 +64,7 @@ It is meant to handle multiple return values from a `DispatchNode`.
 
 Example:
 ```julia
-n1, n2 = push!(ctx, Op(()->divrem(5, 2)))
+n1, n2 = add!(ctx, Op(()->divrem(5, 2)))
 run(exec, ctx)
 
 @assert fetch(n1) == 2
@@ -117,13 +117,12 @@ Base.length(ns::NodeSet) = length(ns.id_dict)
 Base.in(node::DispatchNode, ns::NodeSet) = node in keys(ns.node_dict)
 
 function Base.push!(ns::NodeSet, node::DispatchNode)
-    if node in ns
-        return ns[node]
-    else
+    if !(node in ns)
         new_number = length(ns) + 1
         ns[new_number] = node  # sets reverse mapping as well
-        return new_number
     end
+
+    return ns
 end
 
 "Return the node numbers of all nodes in `nodes` which are present in `ns`"

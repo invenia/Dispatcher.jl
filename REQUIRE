@@ -3,4 +3,4 @@ LightGraphs
 Iterators
 DeferredFutures 0.1.1
 DataStructures
-AutoHashEquals
+AutoHashEquals 0.0.10

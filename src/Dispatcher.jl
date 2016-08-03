@@ -6,13 +6,19 @@ export DispatchContext,
     DataNode,
     Op,
     add_edge!,
-    dependencies
+    nodes,
+    dependencies,
+    add!
 
 export Executor,
     AsyncExecutor,
     ParallelExecutor,
     dispatch!,
     run!
+
+export @dispatch_context,
+    @op,
+    @node
 
 using AutoHashEquals
 using DataStructures
@@ -24,5 +30,6 @@ include("nodes.jl")
 include("graph.jl")
 include("context.jl")
 include("executors.jl")
+include("macros.jl")
 
 end # module

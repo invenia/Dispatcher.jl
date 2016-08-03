@@ -30,7 +30,7 @@ dependencies.
 
 Returns the `DispatchNode` which was added.
 """
-function Base.push!(ctx::DispatchContext, node::DispatchNode)
+function add!(ctx::DispatchContext, node::DispatchNode)
     push!(ctx.graph, node)
 
     deps = dependencies(node)
@@ -38,7 +38,7 @@ function Base.push!(ctx::DispatchContext, node::DispatchNode)
     for dep in deps
         # `IndexNode`s are not automatically stored in the context
         if isa(dep, IndexNode)
-            Base.push!(ctx, dep)
+            add!(ctx, dep)
         end
 
         add_edge!(ctx.graph, dep, node)
