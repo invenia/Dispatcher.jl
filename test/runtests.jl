@@ -221,6 +221,52 @@ import LightGraphs
 end
 
 @testset "Dispatcher" begin
+    @testset "Macros" begin
+        @testset "Simple" begin
+            @testset "Op" begin
+                ex = quote
+                    @dispatch_context begin
+                        @op sum(4)
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 1
+                @test isa(ctx_nodes[1], Op)
+                @test ctx_nodes[1].func == sum
+                @test collect(ctx_nodes[1].args) == [4]
+                @test isempty(ctx_nodes[1].kwargs)
+            end
+
+            @testset "Generic (Op)" begin
+                ex = quote
+                    @dispatch_context begin
+                        @node Op(sum, 4)
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 1
+                @test isa(ctx_nodes[1], Op)
+                @test ctx_nodes[1].func == sum
+                @test collect(ctx_nodes[1].args) == [4]
+                @test isempty(ctx_nodes[1].kwargs)
+            end
+        end
+    end
+
     @testset "Executors" begin
         @testset "Single process" begin
             @testset "Example" begin

@@ -16,6 +16,10 @@ export Executor,
     dispatch!,
     run!
 
+export @dispatch_context,
+    @op,
+    @node
+
 using AutoHashEquals
 using DataStructures
 using DeferredFutures
@@ -26,5 +30,6 @@ include("nodes.jl")
 include("graph.jl")
 include("context.jl")
 include("executors.jl")
+include("macros.jl")
 
 end # module
