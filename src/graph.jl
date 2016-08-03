@@ -13,7 +13,8 @@ DispatchGraph() = DispatchGraph(DiGraph(), NodeSet())
 Base.length(g::DispatchGraph) = length(g.nodes)
 
 function Base.push!(g::DispatchGraph, node::DispatchNode)
-    node_number = push!(g.nodes, node)
+    push!(g.nodes, node)
+    node_number = g.nodes[node]
     add_vertices!(g.graph, clamp(node_number - nv(g.graph), 0, node_number))
     return g
 end

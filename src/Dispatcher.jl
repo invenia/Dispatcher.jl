@@ -6,7 +6,9 @@ export DispatchContext,
     DataNode,
     Op,
     add_edge!,
-    dependencies
+    nodes,
+    dependencies,
+    add!
 
 export Executor,
     AsyncExecutor,

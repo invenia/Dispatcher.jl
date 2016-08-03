@@ -221,114 +221,38 @@ import LightGraphs
 end
 
 @testset "Dispatcher" begin
-    @testset "Single process" begin
-        @testset "Example" begin
-            ctx = DispatchContext()
-            exec = AsyncExecutor()
-            comm = Channel{Float64}(2)
-
-            op = Op(()->3)
-            @test isempty(dependencies(op))
-            a = push!(ctx, op)
-
-            op = Op((x)->x, 4)
-            @test isempty(dependencies(op))
-            b = push!(ctx, op)
-
-            op = Op(max, a, b)
-            deps = dependencies(op)
-            @test a in deps
-            @test b in deps
-            c = push!(ctx, op)
-
-            op = Op(sqrt, c)
-            @test c in dependencies(op)
-            d = push!(ctx, op)
-
-            op = Op((x)->(factorial(x), factorial(2x)), c)
-            @test c in dependencies(op)
-            e, f = push!(ctx, op)
-
-            op = Op((x)->put!(comm, x / 2), f)
-            @test f in dependencies(op)
-            g = push!(ctx, op)
-
-            result_truth = factorial(2 * (max(3, 4))) / 2
-
-            run!(exec, ctx)
-
-            @test isready(comm)
-            @test take!(comm) === result_truth
-            @test !isready(comm)
-            close(comm)
-        end
-
-        @testset "Partial" begin
-            # this sort of stateful behaviour outside of the node graph is not recommended
-            # but we're using it here because it makes testing easy
-
-            ctx = DispatchContext()
-            exec = AsyncExecutor()
-            comm = Channel{Float64}(3)
-
-            op = Op(()->(put!(comm, 4); comm))
-            a = push!(ctx, op)
-
-            op = Op(a) do ch
-                x = take!(ch)
-                put!(ch, x + 1)
-            end
-            b = push!(ctx, op)
-
-            op = Op(a) do ch
-                x = take!(ch)
-                put!(ch, x + 2)
-            end
-            c = push!(ctx, op)
-
-            bret, = run!(exec, ctx, [b])
-            @test b === bret
-
-            @test fetch(comm) == 5
-
-            # run remainder of graph
-            run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
-            @test fetch(comm) == 7
-        end
-    end
-
-    @testset "Parallel" begin
-        @testset "1 process" begin
+    @testset "Executors" begin
+        @testset "Single process" begin
             @testset "Example" begin
                 ctx = DispatchContext()
-                exec = ParallelExecutor()
+                exec = AsyncExecutor()
                 comm = Channel{Float64}(2)
 
                 op = Op(()->3)
                 @test isempty(dependencies(op))
-                a = push!(ctx, op)
+                a = add!(ctx, op)
 
                 op = Op((x)->x, 4)
                 @test isempty(dependencies(op))
-                b = push!(ctx, op)
+                b = add!(ctx, op)
 
                 op = Op(max, a, b)
                 deps = dependencies(op)
                 @test a in deps
                 @test b in deps
-                c = push!(ctx, op)
+                c = add!(ctx, op)
 
                 op = Op(sqrt, c)
                 @test c in dependencies(op)
-                d = push!(ctx, op)
+                d = add!(ctx, op)
 
                 op = Op((x)->(factorial(x), factorial(2x)), c)
                 @test c in dependencies(op)
-                e, f = push!(ctx, op)
+                e, f = add!(ctx, op)
 
                 op = Op((x)->put!(comm, x / 2), f)
                 @test f in dependencies(op)
-                g = push!(ctx, op)
+                g = add!(ctx, op)
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
@@ -339,93 +263,73 @@ end
                 @test !isready(comm)
                 close(comm)
             end
-        end
 
-        @testset "2 process" begin
-            @testset "Example" begin
-                pnums = addprocs(1)
-                @everywhere using Dispatcher
-                comm = RemoteChannel(()->Channel{Float64}(2))
+            @testset "Partial" begin
+                # this sort of stateful behaviour outside of the node graph is not recommended
+                # but we're using it here because it makes testing easy
 
-                try
-                    ctx = DispatchContext()
-                    exec = ParallelExecutor()
+                ctx = DispatchContext()
+                exec = AsyncExecutor()
+                comm = Channel{Float64}(3)
 
-                    op = Op(()->3)
-                    @test isempty(dependencies(op))
-                    a = push!(ctx, op)
+                op = Op(()->(put!(comm, 4); comm))
+                a = add!(ctx, op)
 
-                    op = Op((x)->x, 4)
-                    @test isempty(dependencies(op))
-                    b = push!(ctx, op)
-
-                    op = Op(max, a, b)
-                    deps = dependencies(op)
-                    @test a in deps
-                    @test b in deps
-                    c = push!(ctx, op)
-
-                    op = Op(sqrt, c)
-                    @test c in dependencies(op)
-                    d = push!(ctx, op)
-
-                    op = Op((x)->(factorial(x), factorial(2x)), c)
-                    @test c in dependencies(op)
-                    e, f = push!(ctx, op)
-
-                    op = Op((x)->put!(comm, x / 2), f)
-                    @test f in dependencies(op)
-                    g = push!(ctx, op)
-
-                    result_truth = factorial(2 * (max(3, 4))) / 2
-
-                    run!(exec, ctx)
-
-                    @test isready(comm)
-                    @test take!(comm) === result_truth
-                    @test !isready(comm)
-                    close(comm)
-                finally
-                    rmprocs(pnums)
+                op = Op(a) do ch
+                    x = take!(ch)
+                    put!(ch, x + 1)
                 end
+                b = add!(ctx, op)
+
+                op = Op(a) do ch
+                    x = take!(ch)
+                    put!(ch, x + 2)
+                end
+                c = add!(ctx, op)
+
+                bret, = run!(exec, ctx, [b])
+                @test b === bret
+
+                @test fetch(comm) == 5
+
+                # run remainder of graph
+                run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
+                @test fetch(comm) == 7
             end
         end
 
-        @testset "3 process" begin
-            @testset "Example" begin
-                pnums = addprocs(2)
-                @everywhere using Dispatcher
-                comm = RemoteChannel(()->Channel{Float64}(2))
-
-                try
+        @testset "Parallel" begin
+            @testset "1 process" begin
+                @testset "Example" begin
                     ctx = DispatchContext()
                     exec = ParallelExecutor()
+                    comm = Channel{Float64}(2)
 
                     op = Op(()->3)
                     @test isempty(dependencies(op))
-                    a = push!(ctx, op)
+                    a = add!(ctx, op)
 
                     op = Op((x)->x, 4)
                     @test isempty(dependencies(op))
-                    b = push!(ctx, op)
+                    b = add!(ctx, op)
 
                     op = Op(max, a, b)
                     deps = dependencies(op)
                     @test a in deps
                     @test b in deps
-                    c = push!(ctx, op)
+                    c = add!(ctx, op)
 
                     op = Op(sqrt, c)
                     @test c in dependencies(op)
-                    d = push!(ctx, op)
+                    d = add!(ctx, op)
 
                     op = Op((x)->(factorial(x), factorial(2x)), c)
                     @test c in dependencies(op)
-                    e, f = push!(ctx, op)
+                    e, f = add!(ctx, op)
 
                     op = Op((x)->put!(comm, x / 2), f)
                     @test f in dependencies(op)
-                    g = push!(ctx, op)
+                    g = add!(ctx, op)
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
@@ -435,8 +339,106 @@ end
                     @test take!(comm) === result_truth
                     @test !isready(comm)
                     close(comm)
-                finally
-                    rmprocs(pnums)
+                end
+            end
+
+            @testset "2 process" begin
+                @testset "Example" begin
+                    pnums = addprocs(1)
+                    @everywhere using Dispatcher
+                    comm = RemoteChannel(()->Channel{Float64}(2))
+
+                    try
+                        ctx = DispatchContext()
+                        exec = ParallelExecutor()
+
+                        op = Op(()->3)
+                        @test isempty(dependencies(op))
+                        a = add!(ctx, op)
+
+                        op = Op((x)->x, 4)
+                        @test isempty(dependencies(op))
+                        b = add!(ctx, op)
+
+                        op = Op(max, a, b)
+                        deps = dependencies(op)
+                        @test a in deps
+                        @test b in deps
+                        c = add!(ctx, op)
+
+                        op = Op(sqrt, c)
+                        @test c in dependencies(op)
+                        d = add!(ctx, op)
+
+                        op = Op((x)->(factorial(x), factorial(2x)), c)
+                        @test c in dependencies(op)
+                        e, f = add!(ctx, op)
+
+                        op = Op((x)->put!(comm, x / 2), f)
+                        @test f in dependencies(op)
+                        g = add!(ctx, op)
+
+                        result_truth = factorial(2 * (max(3, 4))) / 2
+
+                        run!(exec, ctx)
+
+                        @test isready(comm)
+                        @test take!(comm) === result_truth
+                        @test !isready(comm)
+                        close(comm)
+                    finally
+                        rmprocs(pnums)
+                    end
+                end
+            end
+
+            @testset "3 process" begin
+                @testset "Example" begin
+                    pnums = addprocs(2)
+                    @everywhere using Dispatcher
+                    comm = RemoteChannel(()->Channel{Float64}(2))
+
+                    try
+                        ctx = DispatchContext()
+                        exec = ParallelExecutor()
+
+                        op = Op(()->3)
+                        @test isempty(dependencies(op))
+                        a = add!(ctx, op)
+
+                        op = Op((x)->x, 4)
+                        @test isempty(dependencies(op))
+                        b = add!(ctx, op)
+
+                        op = Op(max, a, b)
+                        deps = dependencies(op)
+                        @test a in deps
+                        @test b in deps
+                        c = add!(ctx, op)
+
+                        op = Op(sqrt, c)
+                        @test c in dependencies(op)
+                        d = add!(ctx, op)
+
+                        op = Op((x)->(factorial(x), factorial(2x)), c)
+                        @test c in dependencies(op)
+                        e, f = add!(ctx, op)
+
+                        op = Op((x)->put!(comm, x / 2), f)
+                        @test f in dependencies(op)
+                        g = add!(ctx, op)
+
+                        result_truth = factorial(2 * (max(3, 4))) / 2
+
+                        run!(exec, ctx)
+
+                        @test isready(comm)
+                        @test take!(comm) === result_truth
+                        @test !isready(comm)
+                        close(comm)
+                    finally
+                        rmprocs(pnums)
+                    end
                 end
             end
         end
