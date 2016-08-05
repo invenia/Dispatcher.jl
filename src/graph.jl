@@ -92,10 +92,10 @@ which are decendents from nodes which are not descendants of
 function subgraph{T<:DispatchNode, S<:DispatchNode}(
     g::DispatchGraph,
     endpoints::AbstractArray{T},
-    inputs::AbstractArray{S}=DispatchNode[],
+    roots::AbstractArray{S}=DispatchNode[],
 )
     endpoint_ids = Int[g.nodes[e] for e in endpoints]
-    input_ids = Int[g.nodes[i] for i in inputs]
+    input_ids = Int[g.nodes[i] for i in roots]
 
     return subgraph(g, endpoint_ids, input_ids)
 end
