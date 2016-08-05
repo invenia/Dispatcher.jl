@@ -1,3 +1,5 @@
+import Iterators: chain
+
 """
 Handles execution of `DispatchContext`s.
 
@@ -70,26 +72,31 @@ ignoring nodes for which all paths descend to `input_nodes`).
 
 Returns `nodes`.
 """
-function run!{T<:DispatchNode}(
+function run!{T<:DispatchNode, S<:DispatchNode}(
     exec::Executor,
     ctx::DispatchContext,
-    nodes::AbstractArray{T};
-    input_nodes::Associative=Dict{DispatchNode, Any}()
+    nodes::AbstractArray{T},
+    input_nodes::AbstractArray{S}=DispatchNode[];
+    input_map::Associative=Dict{DispatchNode, Any}(),
 )
     reduced_ctx = copy(ctx)
-    input_node_keys = collect(keys(input_nodes))
+    input_node_keys = DispatchNode[
+        n for n in chain(input_nodes, keys(input_map))
+    ]
+
     reduced_ctx.graph = subgraph(ctx.graph, nodes, input_node_keys)
 
-    # replace input_nodes with their values
-    for node in input_node_keys
+    # replace nodes in input_map with their values
+    for (node, val) in chain(zip(input_nodes, imap(fetch, input_nodes)), input_map)
         node_id = reduced_ctx.graph.nodes[node]
-        reduced_ctx.graph.nodes[node_id] = DataNode(input_nodes[node])
+        reduced_ctx.graph.nodes[node_id] = DataNode(val)
     end
 
     run!(exec, reduced_ctx)
 
     return nodes
 end
+
 
 """
 The `run!` function prepares a `DispatchContext` for dispatch and then

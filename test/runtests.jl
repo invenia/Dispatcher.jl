@@ -310,7 +310,7 @@ end
                 close(comm)
             end
 
-            @testset "Partial" begin
+            @testset "Partial (dict input)" begin
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
@@ -339,7 +339,40 @@ end
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                run!(exec, ctx, [c]; input_nodes=Dict(a=>fetch(a)))
+                run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
+                @test fetch(comm) == 7
+            end
+
+            @testset "Partial (array input)" begin
+                # this sort of stateful behaviour outside of the node graph is not recommended
+                # but we're using it here because it makes testing easy
+
+                ctx = DispatchContext()
+                exec = AsyncExecutor()
+                comm = Channel{Float64}(3)
+
+                op = Op(()->(put!(comm, 4); comm))
+                a = add!(ctx, op)
+
+                op = Op(a) do ch
+                    x = take!(ch)
+                    put!(ch, x + 1)
+                end
+                b = add!(ctx, op)
+
+                op = Op(a) do ch
+                    x = take!(ch)
+                    put!(ch, x + 2)
+                end
+                c = add!(ctx, op)
+
+                b_ret, = run!(exec, ctx, [b])
+                @test b === b_ret
+
+                @test fetch(comm) == 5
+
+                # run remainder of graph
+                run!(exec, ctx, [c], [a])
                 @test fetch(comm) == 7
             end
 
