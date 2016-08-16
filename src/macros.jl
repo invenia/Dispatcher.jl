@@ -3,7 +3,7 @@ macro node(ex)
 end
 
 macro op(ex)
-    annotate(ex, :dispatchop, :(Dispatcher.Op))
+    annotate(ex, :dispatchop)
 end
 
 function annotate(ex::Expr, head::Symbol, args...)
@@ -31,7 +31,7 @@ typealias BaseCaseNodes Union{Number, Symbol, MethodError}
 
 function process_nodes!(ex::Expr, ctx_sym::Symbol)
     if ex.head === :dispatchop
-        inner_ex_type = ex.args[2].head
+        inner_ex_type = ex.args[end].head
 
         if inner_ex_type === :call
             process_op!(ex, ctx_sym)
@@ -52,7 +52,6 @@ end
 process_nodes!(ex::BaseCaseNodes, ctx_sym::Symbol) = ex
 
 function process_op!(ex::Expr, ctx_sym::Symbol)
-    dispatch_node_type = ex.args[1]
     fn_call_expr = ex.args[end]
 
     ex.head = :call
@@ -61,7 +60,7 @@ function process_op!(ex::Expr, ctx_sym::Symbol)
         ctx_sym,
         Expr(
             :call,
-            dispatch_node_type,
+            Dispatcher.Op,
             fn_call_expr.args...
         )
     ]
