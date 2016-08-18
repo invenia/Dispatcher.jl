@@ -24,4 +24,5 @@ docs_dir: 'build'
 pages:
   - Home: index.md
   - Manual: pages/manual.md
+  - API: pages/api.md
   - Index: pages/index.md
