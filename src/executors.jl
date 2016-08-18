@@ -127,9 +127,15 @@ function prepare!(exec::Executor, ctx::DispatchContext)
     return nothing
 end
 
+"""
+Accepts a `DispatchContext` and an `Executor` and calls `run!` for each node
+in the `DispatchContext` using the `Executor`. In almost all cases, a custom
+`Executor` will provide a `dispatch!` method which distributes work to nodes.
+"""
+function dispatch! end
 
 """
-`AsyncExecutor` is an Executor which spawns a local Julia `Task` for each
+`AsyncExecutor` is an `Executor` which spawns a local Julia `Task` for each
 `DispatchNode` and waits for them to complete.
 `AsyncExecutor`'s `dispatch!` method will complete as long as each
 `DispatchNode`'s `run!` method completes and there are no cycles in the
@@ -155,7 +161,7 @@ function dispatch!(exec::AsyncExecutor, ctx::DispatchContext)
 end
 
 """
-`ParallelExecutor` is an Executor which creates a Julia `Task` for each
+`ParallelExecutor` is an `Executor` which creates a Julia `Task` for each
 `DispatchNode`, spawns each of those tasks on the processes available to Julia,
 and waits for them to complete.
 `ParallelExecutor`'s `dispatch!` method will complete as long as each

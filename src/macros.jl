@@ -1,7 +1,34 @@
+"""
+The `@node` macro makes it more convenient to add nodes to the computation
+graph while in a `@dispatch_context` block.
+
+```julia
+a = @node DataNode([1, 3, 5])
+```
+is equivalent to
+```julia
+a = add!(ctx, DataNode([1, 3, 5]))
+```
+where `ctx` is a variable created by the surrounding `@dispatch_context`.
+"""
 macro node(ex)
     annotate(ex, :dispatchnode)
 end
 
+"""
+The `@op` macro makes it more convenient to add `Op` nodes to the computation
+graph while in a `@dispatch_context` block. It translates a function call into
+an `Op` call, effectively deferring the computation.
+
+```julia
+a = @op sort(1:10; rev=true)
+```
+is equivalent to
+```julia
+a = add!(ctx, Op(sort, 1:10; rev=true))
+```
+where `ctx` is a variable created by the surrounding `@dispatch_context`.
+"""
 macro op(ex)
     annotate(ex, :dispatchop)
 end
@@ -10,6 +37,13 @@ function annotate(ex::Expr, head::Symbol, args...)
     Expr(head, args..., ex)
 end
 
+"""
+Anonymously create and return a DispatchContext. Accepts a block argument and
+causes all `@op` and `@node` macros within that block to use said
+DispatchContext.
+
+See examples in the manual.
+"""
 macro dispatch_context(ex::Expr)
     ctx_sym = gensym("ctx")
     new_ex = macroexpand(ex)
