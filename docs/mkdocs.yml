@@ -1,0 +1,28 @@
+site_name:        Dispatcher.jl
+repo_url:         https://***REMOVED***
+site_description: Dispatcher is a tool for building and executing a computation graph given a series of dependent operations
+site_author:      eric.davies@invenia.ca
+
+theme: yeti
+
+extra_css:
+  - assets/Documenter.css
+  - assets/invenia.css
+
+extra_javascript:
+  - https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML
+  - assets/mathjaxhelper.js
+
+markdown_extensions:
+  - extra
+  - tables
+  - fenced_code
+  # - codehilite
+
+docs_dir: 'build'
+
+pages:
+  - Home: index.md
+  - Manual: pages/manual.md
+  - API: pages/api.md
+  - Index: pages/index.md
