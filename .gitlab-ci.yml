@@ -1,25 +1,47 @@
+stages:
+  - test
+  - docs
+
 "Julia nightly, OS X":
+  stage: test
   tags:
     - osx
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
 
 
 "Julia nightly, Linux (amd64)":
+  stage: test
   tags:
     - linux
     - amd64
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"]; coverage=true)'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"]; coverage=true)'
     - julia --depwarn=no -e 'cd(Pkg.dir(ENV["PKG_NAME"])); Pkg.add("Coverage"); Pkg.checkout("Coverage"); using Coverage; Codecov.submit_local(process_folder(); branch=ENV["CI_BUILD_REF_NAME"], commit=ENV["CI_BUILD_REF"], job=ENV["CI_BUILD_ID"], service="gitlab")'
 
 
 "Julia nightly, Linux (i386)":
+  stage: test
   tags:
     - linux
     - i386
   script:
     - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
-    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Requires"); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+
+"Documentation":
+  stage: docs
+  tags:
+    - docs
+  only:
+    - master
+    - develop
+    - docs
+    - tags  # special keyword for all tags
+  script:
+    - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia nightly
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.checkout("Documenter"); Pkg.build(ENV["PKG_NAME"]);'
+    - julia --depwarn=no -e 'cd(Pkg.dir(ENV["PKG_NAME"], "docs")); include("make.jl"); run(`mkdocs build`)'
+    - julia --depwarn=no -e 'const DOCS_DIR = joinpath("/mnt", "docs", ENV["CI_PROJECT_NAMESPACE"], ENV["CI_PROJECT_NAME"], ENV["CI_BUILD_REF_NAME"]); mkpath(DOCS_DIR); cp(Pkg.dir(ENV["PKG_NAME"], "docs", "site"), DOCS_DIR; remove_destination=true, follow_symlinks=true)'
