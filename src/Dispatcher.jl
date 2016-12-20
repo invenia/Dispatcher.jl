@@ -6,6 +6,7 @@ export DispatchContext,
     DataNode,
     IndexNode,
     Op,
+    DependencyError,
     add_edge!,
     nodes,
     dependencies,
@@ -28,7 +29,7 @@ using DeferredFutures
 using Iterators
 using LightGraphs
 
-abstract DispatcherError
+abstract DispatcherError <: Exception
 
 include("nodes.jl")
 include("graph.jl")

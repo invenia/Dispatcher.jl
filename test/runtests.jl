@@ -268,7 +268,7 @@ end
     end
 
     @testset "Executors" begin
-        @testset "Single process" begin
+        @testset "Async" begin
             @testset "Example" begin
                 ctx = DispatchContext()
                 exec = AsyncExecutor()
@@ -333,17 +333,18 @@ end
                 end
                 c = add!(ctx, op)
 
-                b_ret, = run!(exec, ctx, [b])
-                @test b === b_ret
+                ret = run!(exec, ctx, [b])
+                @test b === ret[1]
 
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
+                ret = run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
                 @test fetch(comm) == 7
             end
 
             @testset "Partial (array input)" begin
+                info("Partial array")
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
@@ -392,12 +393,112 @@ end
             end
         end
 
-        @testset "Parallel" begin
-            @testset "1 process" begin
-                @testset "Example" begin
+        @testset "Parallel - $i process" for i in 1:3
+            pnums = i > 1 ? addprocs(i - 1) : ()
+            @everywhere using Dispatcher
+            comm = i > 1 ? RemoteChannel(()->Channel{Float64}(2)) : Channel{Float64}(2)
+
+            try
+                ctx = DispatchContext()
+                exec = ParallelExecutor()
+
+                op = Op(()->3)
+                @test isempty(dependencies(op))
+                a = add!(ctx, op)
+
+                op = Op((x)->x, 4)
+                @test isempty(dependencies(op))
+                b = add!(ctx, op)
+
+                op = Op(max, a, b)
+                deps = dependencies(op)
+                @test a in deps
+                @test b in deps
+                c = add!(ctx, op)
+
+                op = Op(sqrt, c)
+                @test c in dependencies(op)
+                d = add!(ctx, op)
+
+                op = Op((x)->(factorial(x), factorial(2x)), c)
+                @test c in dependencies(op)
+                e, f = add!(ctx, op)
+
+                op = Op((x)->put!(comm, x / 2), f)
+                @test f in dependencies(op)
+                g = add!(ctx, op)
+
+                result_truth = factorial(2 * (max(3, 4))) / 2
+
+                results = run!(exec, ctx)
+
+                @test isready(comm)
+                @test take!(comm) === result_truth
+                @test !isready(comm)
+                close(comm)
+            finally
+                rmprocs(pnums)
+            end
+        end
+
+        @testset "Error Handling" begin
+            @testset "Async - Application Errors" begin
+                using Dispatcher
+                comm = Channel{Float64}(2)
+
+                ctx = DispatchContext()
+                exec = AsyncExecutor()
+
+                op = Op(()->3)
+                @test isempty(dependencies(op))
+                a = add!(ctx, op)
+
+                op = Op((x)->x, 4)
+                @test isempty(dependencies(op))
+                b = add!(ctx, op)
+
+                op = Op(max, a, b)
+                deps = dependencies(op)
+                @test a in deps
+                @test b in deps
+                c = add!(ctx, op)
+
+                op = Op(sqrt, c)
+                @test c in dependencies(op)
+                d = add!(ctx, op)
+
+                op = Op(
+                    (x)-> (
+                        factorial(x),
+                        throw(ErrorException("Application Error"))
+                    ), c
+                )
+
+                @test c in dependencies(op)
+                e, f = add!(ctx, op)
+
+                op = Op((x)->put!(comm, x / 2), f)
+                @test f in dependencies(op)
+                g = add!(ctx, op)
+
+                result_truth = factorial(2 * (max(3, 4))) / 2
+
+                # We should return at least 1 DependencyError
+                @test_throws CompositeException run!(exec, ctx)
+                prepare!(exec, ctx)
+                @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
+                @test !isready(comm)
+                close(comm)
+            end
+
+            @testset "Parallel - Application Errors" begin
+                pnums = addprocs(1)
+                @everywhere using Dispatcher
+                comm = RemoteChannel(()->Channel{Float64}(2))
+
+                try
                     ctx = DispatchContext()
                     exec = ParallelExecutor()
-                    comm = Channel{Float64}(2)
 
                     op = Op(()->3)
                     @test isempty(dependencies(op))
@@ -417,7 +518,13 @@ end
                     @test c in dependencies(op)
                     d = add!(ctx, op)
 
-                    op = Op((x)->(factorial(x), factorial(2x)), c)
+                    op = Op(
+                        (x)-> (
+                            factorial(x),
+                            throw(ErrorException("Application Error"))
+                        ), c
+                    )
+
                     @test c in dependencies(op)
                     e, f = add!(ctx, op)
 
@@ -427,112 +534,104 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    run!(exec, ctx)
+                    # We should return at least 1 DependencyError
+                    @test_throws CompositeException run!(exec, ctx)
+                    prepare!(exec, ctx)
+                    @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
+                    @test !isready(comm)
+                    close(comm)
+                finally
+                    rmprocs(pnums)
+                end
+            end
 
+            @testset "$i procs removed (delay $s)" for i in 1:2, s in 0.1:0.1:0.6
+                function rand_sleep()
+                    sec = rand(0.1:0.05:0.4)
+                    # info("sleeping for $sec")
+                    sleep(sec)
+                end
+
+                pnums = addprocs(2)
+                @everywhere using Dispatcher
+                comm = RemoteChannel(()->Channel{Float64}(2))
+
+                try
+                    ctx = DispatchContext()
+                    exec = ParallelExecutor()
+
+                    op = Op(
+                        ()-> begin
+                            rand_sleep()
+                            return 3
+                        end
+                    )
+                    @test isempty(dependencies(op))
+                    a = add!(ctx, op)
+
+                    op = Op(
+                        (x)-> begin
+                            rand_sleep()
+                            return x
+                        end, 4
+                    )
+                    @test isempty(dependencies(op))
+                    b = add!(ctx, op)
+
+                    op = Op(
+                        (x, y) -> begin
+                            rand_sleep()
+                            max(x, y)
+                        end, a, b
+                    )
+                    deps = dependencies(op)
+                    @test a in deps
+                    @test b in deps
+                    c = add!(ctx, op)
+
+                    op = Op(
+                        (x) -> begin
+                            rand_sleep()
+                            return sqrt(x)
+                        end, c
+                    )
+                    @test c in dependencies(op)
+                    d = add!(ctx, op)
+
+                    op = Op(
+                        (x)-> begin
+                            rand_sleep()
+                            return (factorial(x), factorial(2x))
+                        end, c
+                    )
+                    @test c in dependencies(op)
+                    e, f = add!(ctx, op)
+
+                    op = Op(
+                        (x) -> begin
+                            rand_sleep()
+                            return put!(comm, x / 2)
+                        end, f
+                    )
+                    @test f in dependencies(op)
+                    g = add!(ctx, op)
+
+                    result_truth = factorial(2 * (max(3, 4))) / 2
+
+                    f = @spawnat 1 run!(exec, ctx)
+                    sleep(s)
+
+                    # info("Removing proc")
+                    rmprocs(pnums[1:i])
+                    resp = fetch(f)
+                    # info(resp)
+                    @test !isa(resp, RemoteException)
                     @test isready(comm)
                     @test take!(comm) === result_truth
                     @test !isready(comm)
                     close(comm)
-                end
-            end
-
-            @testset "2 process" begin
-                @testset "Example" begin
-                    pnums = addprocs(1)
-                    @everywhere using Dispatcher
-                    comm = RemoteChannel(()->Channel{Float64}(2))
-
-                    try
-                        ctx = DispatchContext()
-                        exec = ParallelExecutor()
-
-                        op = Op(()->3)
-                        @test isempty(dependencies(op))
-                        a = add!(ctx, op)
-
-                        op = Op((x)->x, 4)
-                        @test isempty(dependencies(op))
-                        b = add!(ctx, op)
-
-                        op = Op(max, a, b)
-                        deps = dependencies(op)
-                        @test a in deps
-                        @test b in deps
-                        c = add!(ctx, op)
-
-                        op = Op(sqrt, c)
-                        @test c in dependencies(op)
-                        d = add!(ctx, op)
-
-                        op = Op((x)->(factorial(x), factorial(2x)), c)
-                        @test c in dependencies(op)
-                        e, f = add!(ctx, op)
-
-                        op = Op((x)->put!(comm, x / 2), f)
-                        @test f in dependencies(op)
-                        g = add!(ctx, op)
-
-                        result_truth = factorial(2 * (max(3, 4))) / 2
-
-                        run!(exec, ctx)
-
-                        @test isready(comm)
-                        @test take!(comm) === result_truth
-                        @test !isready(comm)
-                        close(comm)
-                    finally
-                        rmprocs(pnums)
-                    end
-                end
-            end
-
-            @testset "3 process" begin
-                @testset "Example" begin
-                    pnums = addprocs(2)
-                    @everywhere using Dispatcher
-                    comm = RemoteChannel(()->Channel{Float64}(2))
-
-                    try
-                        ctx = DispatchContext()
-                        exec = ParallelExecutor()
-
-                        op = Op(()->3)
-                        @test isempty(dependencies(op))
-                        a = add!(ctx, op)
-
-                        op = Op((x)->x, 4)
-                        @test isempty(dependencies(op))
-                        b = add!(ctx, op)
-
-                        op = Op(max, a, b)
-                        deps = dependencies(op)
-                        @test a in deps
-                        @test b in deps
-                        c = add!(ctx, op)
-
-                        op = Op(sqrt, c)
-                        @test c in dependencies(op)
-                        d = add!(ctx, op)
-
-                        op = Op((x)->(factorial(x), factorial(2x)), c)
-                        @test c in dependencies(op)
-                        e, f = add!(ctx, op)
-
-                        op = Op((x)->put!(comm, x / 2), f)
-                        @test f in dependencies(op)
-                        g = add!(ctx, op)
-
-                        result_truth = factorial(2 * (max(3, 4))) / 2
-
-                        run!(exec, ctx)
-
-                        @test isready(comm)
-                        @test take!(comm) === result_truth
-                        @test !isready(comm)
-                        close(comm)
-                    finally
-                        rmprocs(pnums)
-                    end
+                finally
+                    rmprocs(pnums)
                 end
             end
         end

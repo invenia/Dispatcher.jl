@@ -2,6 +2,30 @@ stages:
   - test
   - docs
 
+"Julia release, OS X":
+  tags:
+    - osx
+  script:
+    - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia release
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+
+"Julia release, Linux (amd64)":
+  tags:
+    - linux
+    - amd64
+  script:
+    - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia release
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+    - julia --depwarn=no -e 'cd(Pkg.dir(ENV["PKG_NAME"])); Pkg.add("Coverage"); Pkg.checkout("Coverage"); using Coverage; Codecov.submit_local(process_folder(); branch=ENV["CI_BUILD_REF_NAME"], commit=ENV["CI_BUILD_REF"], job=ENV["CI_BUILD_ID"], service="gitlab")'
+
+"Julia release, Linux (i386)":
+  tags:
+    - linux
+    - i386
+  script:
+    - curl -s -o setup-julia https://gitlab.invenia.ca/infrastructure/gitlab-ci-helper/raw/master/setup-julia && source setup-julia release
+    - julia --depwarn=no -e 'symlink(ENV["CI_PROJECT_DIR"], Pkg.dir(ENV["PKG_NAME"])); Pkg.resolve(); Pkg.build(ENV["PKG_NAME"]); Pkg.test(ENV["PKG_NAME"])'
+
 "Julia nightly, OS X":
   stage: test
   tags:

@@ -1,4 +1,19 @@
 """
+`DependencyError` wraps any errors (and corresponding traceback)
+that occur on the dependency of a given nodes.
+
+This is important for passing failure conditions to dependent nodes
+after a failed number of retries.
+"""
+immutable DependencyError{T<:Exception} <: DispatcherError
+    exc::T
+    trace::Union{Vector{Any}, StackTrace}
+    id::Int
+end
+
+Base.showerror(io::IO, de::DependencyError) = showerror(io, de.exc, de.trace, backtrace=false)
+
+"""
 A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
 the `dependencies` function.
@@ -19,6 +34,17 @@ dependencies(node::DispatchNode) = ()
 # fallback compare DispatchNodes only by object id
 # avoids definition for Base.AbstractRemoteRef
 Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
+
+"""
+A blank method for no-op nodes or nodes which simply reference other nodes.
+"""
+prepare!(node::DispatchNode) = nothing
+
+"""
+A blank method for no-op nodes or nodes which simply reference other nodes.
+"""
+run!(node::DispatchNode) = nothing
+
 
 """
 A `DataNode` is a `DispatchNode` which wraps a piece of static data.
@@ -54,9 +80,65 @@ function dependencies(node::Op)
 end
 
 Base.isready(op::Op) = isready(op.result)
-Base.fetch(op::Op) = fetch(op.result)
 Base.wait(op::Op) = wait(op.result)
 
+"""
+`fetch` will grab the result of the `Op` and throw
+`DependencyError` in the condition that the result is a
+`DependencyError`.
+"""
+function Base.fetch(op::Op)
+    ret = fetch(op.result)
+
+    if isa(ret, DependencyError)
+        throw(ret)
+    end
+
+    return ret
+end
+
+"""
+`prepare!` method for `Op` which replaces its result field
+with a fresh, empty one.
+"""
+function prepare!(op::Op)
+    op.result = DeferredFuture()
+    return nothing
+end
+
+"""
+`run!` method for `Op` which stores its function's
+output in its `result` `DeferredFuture`.
+Arguments to the function which are `DispatchNode`s
+are substituted with their value when running.
+"""
+function run!(op::Op)
+    args = map(op.args) do arg
+        if isa(arg, DispatchNode)
+            if isa(arg, Op)
+                info("Waiting on arg = $(arg.result)")
+            end
+            #return retry(fetch, 1.0)(arg)
+            return fetch(arg)
+        else
+            return arg
+        end
+    end
+
+    kwargs = map(op.kwargs) do kwarg
+        if isa(kwarg.second, DispatchNode)
+            if isa(kwarg.second, Op)
+                info("Waiting on kwarg = $(kwarg.second.result)")
+            end
+            # return (kwarg.first => retry(fetch, 1.0)(kwarg.second))
+            return (kwarg.first => fetch(kwarg.second))
+        else
+            return kwarg
+        end
+    end
+
+    return put!(op.result, op.func(args...; kwargs...))
+end
 
 """
 An `IndexNode` refers to an element of the return value of a `DispatchNode`.
