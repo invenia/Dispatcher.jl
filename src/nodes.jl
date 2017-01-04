@@ -6,12 +6,12 @@ This is important for passing failure conditions to dependent nodes
 after a failed number of retries.
 """
 immutable DependencyError{T<:Exception} <: DispatcherError
-    exc::T
+    err::T
     trace::Union{Vector{Any}, StackTrace}
     id::Int
 end
 
-Base.showerror(io::IO, de::DependencyError) = showerror(io, de.exc, de.trace, backtrace=false)
+Base.showerror(io::IO, de::DependencyError) = showerror(io, de.err, de.trace, backtrace=false)
 
 """
 A `DispatchNode` represents a unit of computation that can be run.
@@ -118,7 +118,6 @@ function run!(op::Op)
             if isa(arg, Op)
                 info("Waiting on arg = $(arg.result)")
             end
-            #return retry(fetch, 1.0)(arg)
             return fetch(arg)
         else
             return arg
@@ -130,7 +129,6 @@ function run!(op::Op)
             if isa(kwarg.second, Op)
                 info("Waiting on kwarg = $(kwarg.second.result)")
             end
-            # return (kwarg.first => retry(fetch, 1.0)(kwarg.second))
             return (kwarg.first => fetch(kwarg.second))
         else
             return kwarg

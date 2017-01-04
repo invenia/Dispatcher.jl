@@ -25,6 +25,12 @@ immutable ExecutorError{T} <: DispatcherError
     msg::T
 end
 
+" Default `retries` method for all `Executor`s "
+retries(exec::Executor) = 0
+
+" Default `retry_on` method for all `Executor`s "
+retry_on(exec::Executor) = Function[]
+
 """
 A pre-processing `run!` method which runs a subset of a graph, ending in
 `nodes` and using `input_nodes` to replace nodes with fixed values (and
@@ -99,18 +105,26 @@ returned from the `dispatch!(exec, node)` call. Any errors are caught and used
 to create `DependencyError`s which are thrown. If no errors are produced then the
 node is returned.
 
-2. The aformentioned wrapper function is used in a retry wrapper to rerun failed
-nodes (up to some limit). Conditions specified by the specific `Executor` are used
-to determine retry conditions.
+NOTE: All errors thrown by trying to run `dispatch!(exec, node)` are wrapped in a
+`DependencyError`.
 
-3. A node may enter a state where it cannot be retried
-(either the failure is not one of the retry conditions or we have already
-retried the max number of times).
-In this case, if the error is a `DependencyError` (which it should be) then the error
-will be thrown if `throw_error` is true. If the node for the `DependencyError` is an
-`Op` then the `DependencyError` is placed in the result of that `Op` to signify
-the failure to potential dependents. If a node cannot be retried and the
-exception is not a `DependencyError` then the error is simply thrown.
+2. The aformentioned wrapper function is used in a retry wrapper to rerun failed
+nodes (up to some limit). The wrapped function will only be retried iff
+the error produced by `dispatch!(::executor, ::DispatchNode`) passes one of the
+retry functions specific to that `Executor`.
+By default the `AsyncExecutor` has no `retry_on` functions and the `ParallelExecutor`
+only has `retry_on` functions related to the loss of a worker process during execution.
+
+3. A node may enter a failed state if it exits the retry wrapper with an exception.
+This may occur if an exception is thrown while executing a node and it does not pass any of
+the `retry_on` conditions for the `Executor` or too many attempts to run the node have been made.
+In the situation where a node has entered a failed state and the node is an `Op` then
+the `op.result` is set to the `DependencyError`, signifying the node's failure to any
+dependent nodes.
+Finally, if `throw_error` is true then the `DependencyError` will be immediately thrown
+in the current process without allowing other nodes to finish; however, if `throw_error` is
+false then the `DependencyError` is not thrown and it will be returned in the array
+of passing and failing nodes.
 
 Args:
 - `exec`: is the executor we're running.
@@ -126,6 +140,37 @@ Returns:
 Throws:
 - `DependencyError` for failed nodes if `throw_error` is true
 - Any other uncaught exceptions (indicating an issue with the executor)
+
+Usage:
+
+Example 1) Assuming we have some uncaught application error.
+```
+exec = AsyncExecutor()
+ctx = DispatchContext()
+n1 = add!(ctx, Op()->3)
+n2 = add!(ctx, Op()->4)
+failing_node = add!(ctx, Op(()->throw(ErrorException("ApplicationError"))))
+dep_node = add!(n -> println(n), failing_node)  # This will fail as well
+```
+Then `dispatch!(exec, ctx)` will throw a `DependencyError` and `dispatch!(exec, ctx; throw_error=false)` will
+return an array of passing nodes and the `DependencyError`s (ie: `[n1, n2, DependencyError(...), DependencyError(...)]`)
+
+Example 2) Now if we want to retry our node on certain errors we can do.
+```
+exec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == "503"])
+ctx = DispatchContext()
+n1 = add!(ctx, Op()->3)
+n2 = add!(ctx, Op()->4)
+http_node = add!(ctx, Op(()->http_get(...)))
+```
+Assuming that the `http_get` function does not error 5 times the call to `dispatch!(exec, ctx)` will
+return [n1, n2, http_node]. If the `http_get` function either fails with:
+
+1. a different status code
+2. something other than an `HttpError` or
+3. throws and `HttpError` with status "503" more than 5 times
+
+then we'll see the same failure behaviour as in the previous example.
 """
 function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     ns = ctx.graph.nodes
@@ -145,23 +190,25 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
             # info("Waiting on $cond")
             wait(cond)
             info("Node $id complete.")
-        catch exc
-            warn("Node $id errored with $exc")
+        catch err
+            warn("Node $id errored with $err")
 
-            if isa(exc, RemoteException)
+            if isa(err, RemoteException)
 
                 throw(DependencyError(
-                    exc.captured.ex, exc.captured.processed_bt, id
+                    err.captured.ex, err.captured.processed_bt, id
                 ))
             else
-                # Necessary because of bug with empty stacktraces in base
+                # Necessary because of a bug with empty stacktraces
+                # in base, but will be fixed in 0.6
+                # see https://github.com/JuliaLang/julia/issues/19655
                 trace = try
                     catch_stacktrace()
                 catch
                     StackFrame[]
                 end
 
-                throw(DependencyError(exc, trace, id))
+                throw(DependencyError(err, trace, id))
             end
         end
 
@@ -171,28 +218,28 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     """
     Default behaviour is to throw unknown exceptions.
     """
-    function on_error_inner!(exc)
-        warn("Unhandled error $(tyepof(exc))")
-        throw(exc)
+    function on_error_inner!(err)
+        warn("Unhandled error $(typeof(err))")
+        throw(err)
     end
 
     """
     Handle `DependencyError`s appropriately.
     """
-    function on_error_inner!(exc::DependencyError)
-        warn("Handling DependencyError on $(exc.id)")
+    function on_error_inner!(err::DependencyError)
+        warn("Handling DependencyError on $(err.id)")
 
-        node = ctx.graph.nodes[exc.id]
+        node = ctx.graph.nodes[err.id]
         if isa(node, Op)
             reset!(node.result)
-            put!(node.result, exc)
+            put!(node.result, err)
         end
 
         if throw_error
-            throw(exc)
+            throw(err)
         end
 
-        return exc
+        return err
     end
 
     #=
@@ -208,8 +255,8 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
         run_inner!,
         1:length(ctx.graph.nodes);
         distributed=false,
-        retry_on=isretry(retry_on(exec)),
-        retry_n=retry_n(exec),
+        retry_on=allow_retry(retry_on(exec)),
+        retry_n=retries(exec),
         on_error=on_error_inner!
     )
 
@@ -220,8 +267,8 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     f = Base.wrap_on_error(
         Base.wrap_retry(
             run_inner!,
-            isretry(retry_on(exec)),
-            retry_n(exec),
+            allow_retry(retry_on(exec)),
+            retries(exec),
             Base.DEFAULT_RETRY_MAX_DELAY
         ),
         on_error_inner!
@@ -238,16 +285,16 @@ end
 computation graph.
 """
 type AsyncExecutor <: Executor
-    retry_n::Int
+    retries::Int
     retry_on::Array{Function}
 end
 
-function AsyncExecutor(retry_n=5, retry_on::Array{Function}=Function[])
+function AsyncExecutor(retries=5, retry_on::Array{Function}=Function[])
     return ParallelExecutor(retries, retry_on)
 end
 
-" `retry_n` accessor for AsyncExecutor returns the number of retries per node."
-retry_n(exec::AsyncExecutor) = exec.retry_n
+" `retries` accessor for AsyncExecutor returns the number of retries per node."
+retries(exec::AsyncExecutor) = exec.retries
 
 " `retry_on` accessor for AsyncExecutor returns the array of retry conditions"
 retry_on(exec::AsyncExecutor) = exec.retry_on
@@ -268,20 +315,37 @@ and waits for them to complete.
 computation graph.
 """
 type ParallelExecutor <: Executor
-    retry_n::Int
+    retries::Int
     retry_on::Array{Function}
 
     function ParallelExecutor(retries=5, retry_on::Array{Function}=Function[])
+        # The `ProcessExitedException` is the most common error and is the expected behaviour
+        # in julia, but depending on when worker processes die we can see other exceptions related
+        # to writing to streams and sockets or in the worst case a race condition with
+        # adding and removing pids on the manager process.
         default_retry_on = [
-            (exc) -> isa(exc, ProcessExitedException),
-            (exc) -> begin
-                isa(exc, ArgumentError) && contains(exc.msg, "stream is closed or unusable")
+            # Occurs when calling `fetch(f)` on a future where the remote process has already exited.
+            # In the case of an `f = @spawn mycode; fetch(f)` the `ProcessExitedException` could
+            # occur if the process `mycode` is being run dies/exits before we have fetched the result.
+            (e) -> isa(e, ProcessExitedException),
+
+            # If we are in the middle of fetching data and the process is killed we
+            # could get an ArgumentError saying that the stream was closed or unusable.
+            (e) -> begin
+                isa(e, ArgumentError) && contains(e.msg, "stream is closed or unusable")
             end,
-            (exc) -> begin
-                isa(exc, ArgumentError) && contains(exc.msg, "IntSet elements cannot be negative")
+
+            # Julia appears to have a race condition where the worker process is removed at the
+            # same time as `@spawn` is selecting a pid which results in a negative pid.
+            # This is extremely hard to reproduce, but has happened a few times.
+            (e) -> begin
+                isa(e, ArgumentError) && contains(e.msg, "IntSet elements cannot be negative")
             end,
-            (exc) -> begin
-                isa(exc, ErrorException) && contains(exc.msg, "attempt to send to unknown socket")
+
+            # Similar to the "stream is closed or unusable" error, we can get an error
+            # attempting to write to the unknown socket (of a process that has been killed)
+            (e) -> begin
+                isa(e, ErrorException) && contains(e.msg, "attempt to send to unknown socket")
             end
         ]
 
@@ -289,8 +353,8 @@ type ParallelExecutor <: Executor
     end
 end
 
-" `retry_n` accessor for AsyncExecutor returns the number of retries per node."
-retry_n(exec::ParallelExecutor) = exec.retry_n
+" `retries` accessor for AsyncExecutor returns the number of retries per node."
+retries(exec::ParallelExecutor) = exec.retries
 
 " `retry_on` accessor for AsyncExecutor returns the array of retry conditions"
 retry_on(exec::ParallelExecutor) = exec.retry_on
@@ -303,16 +367,16 @@ The `run!` method on the node is called within an `@spawn` block and the resulti
 dispatch!(exec::ParallelExecutor, node::DispatchNode) = @spawn run!(node)
 
 """
-`isretry` takes an array of functions that take an exception and
-return a bool. `isretry` will return true if any of the conditions hold,
+`allow_retry` takes an array of functions that take an exception and
+return a bool. `allow_retry` will return true if any of the conditions hold,
 otherwise it'll return false.
 """
-function isretry(conditions::Array{Function})
-    function inner_isretry(de::DependencyError)
-        ret = any(f -> tmp = f(de.exc), conditions)
-        info("Retry ($ret) on $(de.exc)")
+function allow_retry(conditions::Array{Function})
+    function inner_allow_retry(de::DependencyError)
+        ret = any(f -> tmp = f(de.err), conditions)
+        info("Retry ($ret) on $(de.err)")
         return ret
     end
 
-    return inner_isretry
+    return inner_allow_retry
 end

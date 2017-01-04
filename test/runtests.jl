@@ -339,7 +339,7 @@ end
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                ret = run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
+                run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
                 @test fetch(comm) == 7
             end
 
@@ -621,10 +621,8 @@ end
                     f = @spawnat 1 run!(exec, ctx)
                     sleep(s)
 
-                    # info("Removing proc")
                     rmprocs(pnums[1:i])
                     resp = fetch(f)
-                    # info(resp)
                     @test !isa(resp, RemoteException)
                     @test isready(comm)
                     @test take!(comm) === result_truth
