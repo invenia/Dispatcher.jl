@@ -3,17 +3,21 @@ import Iterators: chain
 """
 Handles execution of `DispatchContext`s.
 
-A type `T <: Executor` must implement `dispatch!(::T, ::DispatchContext)`
-and may optionally implement `run!(::T, ::DispatchNode)`.
+A type `T <: Executor` must implement `dispatch!(::T, ::DispatchNode)`
+and may optionally implement `dispatch!(::T, ::DispatchContext; throw_error=true)`.
 
 The function call tree will look like this when an executor is run:
 ```
 run!(exec, context)
     prepare!(exec, context)
-        prepare!(exec, nodes[i])
+        prepare!(nodes[i])
     dispatch!(exec, context)
-        run!(exec, nodes[i])
+        dispatch!(exec, nodes[i])
+            run!(nodes[i])
 ```
+
+NOTE: Currently, it is expected that `dispatch!(::T, ::DispatchNode)` returns
+something to wait on (ie: `Task`, `Future`, `Channel`, `DispatchNode`, etc)
 """
 abstract Executor
 
@@ -21,49 +25,11 @@ immutable ExecutorError{T} <: DispatcherError
     msg::T
 end
 
-"""
-A blank method for no-op nodes or nodes which simply reference other nodes.
-"""
-prepare!(exec::Executor, node::DispatchNode) = nothing
+" Default `retries` method for all `Executor`s "
+retries(exec::Executor) = 0
 
-"""
-A blank method for no-op nodes or nodes which simply reference other nodes.
-"""
-run!(exec::Executor, node::DispatchNode) = nothing
-
-"""
-An Executor-agnostic `prepare!` method for `Op` which replaces its result field
-with a fresh, empty one.
-"""
-function prepare!(exec::Executor, op::Op)
-    op.result = DeferredFuture()
-    return nothing
-end
-
-"""
-An Executor-agnostic `run!` method for `Op` which stores its function's
-output in its `result` `DeferredFuture`. Arguments to the function which are
-`DispatchNode`s are substituted with their value when running.
-"""
-function run!(exec::Executor, op::Op)
-    args = map(op.args) do arg
-        if isa(arg, DispatchNode)
-            return fetch(arg)
-        else
-            return arg
-        end
-    end
-
-    kwargs = map(op.kwargs) do kwarg
-        if isa(kwarg.second, DispatchNode)
-            return (kwarg.first => fetch(kwarg.second))
-        else
-            return kwarg
-        end
-    end
-
-    return put!(op.result, op.func(args...; kwargs...))
-end
+" Default `retry_on` method for all `Executor`s "
+retry_on(exec::Executor) = Function[]
 
 """
 A pre-processing `run!` method which runs a subset of a graph, ending in
@@ -78,6 +44,7 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
     nodes::AbstractArray{T},
     input_nodes::AbstractArray{S}=DispatchNode[];
     input_map::Associative=Dict{DispatchNode, Any}(),
+    throw_error=true
 )
     reduced_ctx = copy(ctx)
     input_node_keys = DispatchNode[
@@ -92,9 +59,7 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
         reduced_ctx.graph.nodes[node_id] = DataNode(val)
     end
 
-    run!(exec, reduced_ctx)
-
-    return nodes
+    return run!(exec, reduced_ctx; throw_error=throw_error)
 end
 
 
@@ -105,7 +70,7 @@ dispatches `run!` calls for all nodes in its graph.
 Users will almost never want to add methods to this function for different
 `Executor` subtypes; overriding `dispatch!` is the preferred pattern.
 """
-function run!(exec::Executor, ctx::DispatchContext)
+function run!(exec::Executor, ctx::DispatchContext; throw_error=true)
     if is_cyclic(ctx.graph.graph)
         throw(ExecutorError(
             "Dispatcher can only run graphs without circular dependencies",
@@ -113,7 +78,7 @@ function run!(exec::Executor, ctx::DispatchContext)
     end
 
     prepare!(exec, ctx)
-    dispatch!(exec, ctx)
+    return dispatch!(exec, ctx; throw_error=throw_error)
 end
 
 """
@@ -121,18 +86,197 @@ This function `prepare!`s all nodes for execution.
 """
 function prepare!(exec::Executor, ctx::DispatchContext)
     for node in nodes(ctx.graph)
-        prepare!(exec, node)
+        prepare!(node)
     end
 
     return nothing
 end
 
 """
-Accepts a `DispatchContext` and an `Executor` and calls `run!` for each node
-in the `DispatchContext` using the `Executor`. In almost all cases, a custom
-`Executor` will provide a `dispatch!` method which distributes work to nodes.
+The default `dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)`
+uses asyncmap overall nodes in the context to call `dispatch!(exec, node)`.
+These `dispatch!` call for each node are wrapped in various retry and error
+handling methods.
+
+Wrapping details:
+
+1. All nodes are wrapped in a try catch which waits on the value
+returned from the `dispatch!(exec, node)` call. Any errors are caught and used
+to create `DependencyError`s which are thrown. If no errors are produced then the
+node is returned.
+
+NOTE: All errors thrown by trying to run `dispatch!(exec, node)` are wrapped in a
+`DependencyError`.
+
+2. The aformentioned wrapper function is used in a retry wrapper to rerun failed
+nodes (up to some limit). The wrapped function will only be retried iff
+the error produced by `dispatch!(::executor, ::DispatchNode`) passes one of the
+retry functions specific to that `Executor`.
+By default the `AsyncExecutor` has no `retry_on` functions and the `ParallelExecutor`
+only has `retry_on` functions related to the loss of a worker process during execution.
+
+3. A node may enter a failed state if it exits the retry wrapper with an exception.
+This may occur if an exception is thrown while executing a node and it does not pass any of
+the `retry_on` conditions for the `Executor` or too many attempts to run the node have been made.
+In the situation where a node has entered a failed state and the node is an `Op` then
+the `op.result` is set to the `DependencyError`, signifying the node's failure to any
+dependent nodes.
+Finally, if `throw_error` is true then the `DependencyError` will be immediately thrown
+in the current process without allowing other nodes to finish; however, if `throw_error` is
+false then the `DependencyError` is not thrown and it will be returned in the array
+of passing and failing nodes.
+
+Args:
+- `exec`: is the executor we're running.
+- `ctx`: the context of nodes to run.
+
+Kwargs:
+- `throw_error`: whether or not to throw the `DependencyError` for failed nodes.
+
+Returns:
+- `Array{Union{DispatchNode, DependencyError}}` - returns a list of
+`DispatchNode`s or `DependencyError`s for failed nodes.
+
+Throws:
+- `dispatch!` has the same behaviour on exceptions as `asyncmap` and `pmap`.
+In 0.5 this will throw a `CompositeException` containing `DependencyError`s, while
+in 0.6 this will simply throw the first `DependencyError`.
+
+Usage:
+
+Example 1) Assuming we have some uncaught application error.
+```
+exec = AsyncExecutor()
+ctx = DispatchContext()
+n1 = add!(ctx, Op()->3)
+n2 = add!(ctx, Op()->4)
+failing_node = add!(ctx, Op(()->throw(ErrorException("ApplicationError"))))
+dep_node = add!(n -> println(n), failing_node)  # This will fail as well
+```
+Then `dispatch!(exec, ctx)` will throw a `DependencyError` and `dispatch!(exec, ctx; throw_error=false)` will
+return an array of passing nodes and the `DependencyError`s (ie: `[n1, n2, DependencyError(...), DependencyError(...)]`)
+
+Example 2) Now if we want to retry our node on certain errors we can do.
+```
+exec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == "503"])
+ctx = DispatchContext()
+n1 = add!(ctx, Op()->3)
+n2 = add!(ctx, Op()->4)
+http_node = add!(ctx, Op(()->http_get(...)))
+```
+Assuming that the `http_get` function does not error 5 times the call to `dispatch!(exec, ctx)` will
+return [n1, n2, http_node]. If the `http_get` function either fails with:
+
+1. a different status code
+2. something other than an `HttpError` or
+3. throws and `HttpError` with status "503" more than 5 times
+
+then we'll see the same failure behaviour as in the previous example.
 """
-function dispatch! end
+function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
+    ns = ctx.graph.nodes
+
+    function run_inner!(id::Int)
+        node = ns[id]
+
+        try
+            if isa(node, Op)
+                info("Running node $id - $(typeof(node)) -> result $(node.result)")
+                reset!(ns[id].result)
+            else
+                info("Running node $id - $(typeof(node))")
+            end
+
+            cond = dispatch!(exec, node)
+            # info("Waiting on $cond")
+            wait(cond)
+            info("Node $id complete.")
+        catch err
+            warn("Node $id errored with $err")
+
+            if isa(err, RemoteException)
+
+                throw(DependencyError(
+                    err.captured.ex, err.captured.processed_bt, id
+                ))
+            else
+                # Necessary because of a bug with empty stacktraces
+                # in base, but will be fixed in 0.6
+                # see https://github.com/JuliaLang/julia/issues/19655
+                trace = try
+                    catch_stacktrace()
+                catch
+                    StackFrame[]
+                end
+
+                throw(DependencyError(err, trace, id))
+            end
+        end
+
+        return ns[id]
+    end
+
+    """
+    Default behaviour is to throw unknown exceptions.
+    """
+    function on_error_inner!(err)
+        warn("Unhandled error $(typeof(err))")
+        throw(err)
+    end
+
+    """
+    Handle `DependencyError`s appropriately.
+    """
+    function on_error_inner!(err::DependencyError)
+        warn("Handling DependencyError on $(err.id)")
+
+        node = ctx.graph.nodes[err.id]
+        if isa(node, Op)
+            reset!(node.result)
+            put!(node.result, err)
+        end
+
+        if throw_error
+            throw(err)
+        end
+
+        return err
+    end
+
+    #=
+    This is necessary because the base pmap call is broken.
+    Specifically, if you call `pmap(...; distributed=false)` when
+    you only have a single worker process the resulting `asyncmap`
+    call will only use the same number of `Task`s as there are workers.
+    This will often result in blocking code.
+
+    Our desired `pmap` call is provided below
+    ```
+    results = pmap(
+        run_inner!,
+        1:length(ctx.graph.nodes);
+        distributed=false,
+        retry_on=allow_retry(retry_on(exec)),
+        retry_n=retries(exec),
+        on_error=on_error_inner!
+    )
+
+    NOTE: see issue https://github.com/JuliaLang/julia/issues/19652
+    for more details.
+    ```
+    =#
+    f = Base.wrap_on_error(
+        Base.wrap_retry(
+            run_inner!,
+            allow_retry(retry_on(exec)),
+            retries(exec),
+            Base.DEFAULT_RETRY_MAX_DELAY
+        ),
+        on_error_inner!
+    )
+
+    return asyncmap(f, 1:length(ctx.graph.nodes))
+end
 
 """
 `AsyncExecutor` is an `Executor` which spawns a local Julia `Task` for each
@@ -142,23 +286,26 @@ function dispatch! end
 computation graph.
 """
 type AsyncExecutor <: Executor
+    retries::Int
+    retry_on::Array{Function}
 end
 
-function dispatch!(exec::AsyncExecutor, ctx::DispatchContext)
-    @sync begin
-        for i = 1:length(ctx.graph.nodes)
-            if !isready(ctx.graph.nodes[i])
-                @async begin
-                    node = ctx.graph.nodes[i]
-                    # fetch_deps!(node)
-                    run!(exec, node)
-                end
-            end
-        end
-    end
-
-    return ctx
+function AsyncExecutor(retries=5, retry_on::Array{Function}=Function[])
+    return ParallelExecutor(retries, retry_on)
 end
+
+" `retries` accessor for AsyncExecutor returns the number of retries per node."
+retries(exec::AsyncExecutor) = exec.retries
+
+" `retry_on` accessor for AsyncExecutor returns the array of retry conditions"
+retry_on(exec::AsyncExecutor) = exec.retry_on
+
+"""
+`dispatch!` takes the `AsyncExecutor` and a `DispatchNode` to run.
+The `run!` method on the node is called within an `@async` block and the
+resulting `Task` is returned.
+"""
+dispatch!(exec::AsyncExecutor, node::DispatchNode) = @async run!(node)
 
 """
 `ParallelExecutor` is an `Executor` which creates a Julia `Task` for each
@@ -169,20 +316,68 @@ and waits for them to complete.
 computation graph.
 """
 type ParallelExecutor <: Executor
+    retries::Int
+    retry_on::Array{Function}
+
+    function ParallelExecutor(retries=5, retry_on::Array{Function}=Function[])
+        # The `ProcessExitedException` is the most common error and is the expected behaviour
+        # in julia, but depending on when worker processes die we can see other exceptions related
+        # to writing to streams and sockets or in the worst case a race condition with
+        # adding and removing pids on the manager process.
+        default_retry_on = [
+            # Occurs when calling `fetch(f)` on a future where the remote process has already exited.
+            # In the case of an `f = @spawn mycode; fetch(f)` the `ProcessExitedException` could
+            # occur if the process `mycode` is being run dies/exits before we have fetched the result.
+            (e) -> isa(e, ProcessExitedException),
+
+            # If we are in the middle of fetching data and the process is killed we
+            # could get an ArgumentError saying that the stream was closed or unusable.
+            (e) -> begin
+                isa(e, ArgumentError) && contains(e.msg, "stream is closed or unusable")
+            end,
+
+            # Julia appears to have a race condition where the worker process is removed at the
+            # same time as `@spawn` is selecting a pid which results in a negative pid.
+            # This is extremely hard to reproduce, but has happened a few times.
+            (e) -> begin
+                isa(e, ArgumentError) && contains(e.msg, "IntSet elements cannot be negative")
+            end,
+
+            # Similar to the "stream is closed or unusable" error, we can get an error
+            # attempting to write to the unknown socket (of a process that has been killed)
+            (e) -> begin
+                isa(e, ErrorException) && contains(e.msg, "attempt to send to unknown socket")
+            end
+        ]
+
+        new(retries, append!(default_retry_on, retry_on))
+    end
 end
 
-function dispatch!(exec::ParallelExecutor, ctx::DispatchContext)
-    @sync begin
-        for i = 1:length(ctx.graph.nodes)
-            if !isready(ctx.graph.nodes[i])
-                @spawn begin
-                    node = ctx.graph.nodes[i]
-                    # fetch_deps!(node)
-                    run!(exec, node)
-                end
-            end
-        end
+" `retries` accessor for AsyncExecutor returns the number of retries per node."
+retries(exec::ParallelExecutor) = exec.retries
+
+" `retry_on` accessor for AsyncExecutor returns the array of retry conditions"
+retry_on(exec::ParallelExecutor) = exec.retry_on
+
+"""
+`dispatch!` takes the `ParallelExecutor` and a `DispatchNode` to run.
+The `run!` method on the node is called within an `@spawn` block and the resulting
+`Future` is returned.
+"""
+dispatch!(exec::ParallelExecutor, node::DispatchNode) = @spawn run!(node)
+
+"""
+`allow_retry` takes an array of functions that take an exception and
+return a bool. `allow_retry` will return true if any of the conditions hold,
+otherwise it'll return false.
+"""
+function allow_retry(conditions::Array{Function})
+    function inner_allow_retry(de::DependencyError)
+        ret = any(f -> tmp = f(de.err), conditions)
+        info("Retry ($ret) on $(de.err)")
+        return ret
     end
 
-    return ctx
+    return inner_allow_retry
 end

@@ -1,7 +1,7 @@
 julia 0.5-
 LightGraphs
 Iterators
-DeferredFutures 0.1.1
+DeferredFutures 0.2.0
 DataStructures
 AutoHashEquals 0.0.10
 Documenter
