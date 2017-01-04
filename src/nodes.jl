@@ -4,6 +4,10 @@ that occur on the dependency of a given nodes.
 
 This is important for passing failure conditions to dependent nodes
 after a failed number of retries.
+
+NOTE: our `trace` field is a Union of `Vector{Any}` and `StackTrace`
+because we could be storing the traceback from a
+`CompositeException` (inside a `RemoteException`) which is of type `Vector{Any}`
 """
 immutable DependencyError{T<:Exception} <: DispatcherError
     err::T
