@@ -483,8 +483,13 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                # We should return at least 1 DependencyError
-                @test_throws CompositeException run!(exec, ctx)
+                # Behaviour of `asyncmap` on exceptions changed
+                # between julia 0.5 and 0.6
+                if VERSION < v"0.6.0-"
+                    @test_throws CompositeException run!(exec, ctx)
+                else
+                    @test_throws DependencyError run!(exec, ctx)
+                end
                 prepare!(exec, ctx)
                 @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
                 @test !isready(comm)
@@ -534,8 +539,14 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    # We should return at least 1 DependencyError
-                    @test_throws CompositeException run!(exec, ctx)
+                    # Behaviour of `asyncmap` on exceptions changed
+                    # between julia 0.5 and 0.6
+                    if VERSION < v"0.6.0-"
+                        @test_throws CompositeException run!(exec, ctx)
+                    else
+                        @test_throws DependencyError run!(exec, ctx)
+                    end
+
                     prepare!(exec, ctx)
                     @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
                     @test !isready(comm)

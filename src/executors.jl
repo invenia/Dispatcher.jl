@@ -138,8 +138,9 @@ Returns:
 `DispatchNode`s or `DependencyError`s for failed nodes.
 
 Throws:
-- `DependencyError` for failed nodes if `throw_error` is true
-- Any other uncaught exceptions (indicating an issue with the executor)
+- `dispatch!` has the same behaviour on exceptions as `asyncmap` and `pmap`.
+In 0.5 this will throw a `CompositeException` containing `DependencyError`s, while
+in 0.6 this will simply throw the first `DependencyError`.
 
 Usage:
 
