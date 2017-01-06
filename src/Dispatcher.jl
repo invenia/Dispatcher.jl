@@ -21,7 +21,9 @@ export Executor,
 
 export @dispatch_context,
     @op,
-    @node
+    @node,
+    @component,
+    @include
 
 using AutoHashEquals
 using DataStructures

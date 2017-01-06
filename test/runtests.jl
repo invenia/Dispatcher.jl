@@ -265,6 +265,45 @@ end
                 @test isempty(ctx_nodes[1].kwargs)
             end
         end
+
+        @testset "Complex" begin
+            @testset "Components" begin
+                ex = quote
+                    @component function comp(node)
+                        x = @op node + 3
+                        y = @op node + 1
+                        x, y
+                    end
+
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        b, c = @include comp(a)
+                        d = @op b * c
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 4
+                @test all(n->isa(n, Op), ctx_nodes)
+
+                op_ctx = let
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        x = @op a + 3
+                        y = @op a + 1
+                        d = @op x * y
+                    end
+                end
+
+                @test ctx.graph.graph == op_ctx.graph.graph
+            end
+        end
     end
 
     @testset "Executors" begin
@@ -390,6 +429,26 @@ end
                     add!(ctx, b)
                     run!(exec, ctx)
                 end
+            end
+
+            @testset "Components" begin
+                exec = AsyncExecutor()
+
+                @component function comp(node)
+                    x = @op node + 3
+                    y = @op node + 1
+                    x, y
+                end
+
+                ctx = @dispatch_context begin
+                    a = @op 1 + 2
+                    b, c = @include comp(a)
+                    d = @op b * c
+                end
+
+                result = run!(exec, ctx, [d])
+
+                @test fetch(result[1]) == 24
             end
         end
 
