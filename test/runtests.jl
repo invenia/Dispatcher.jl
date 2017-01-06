@@ -291,6 +291,17 @@ end
                 ctx_nodes = collect(nodes(ctx.graph))
                 @test length(ctx_nodes) == 4
                 @test all(n->isa(n, Op), ctx_nodes)
+
+                op_ctx = let
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        x = @op a + 3
+                        y = @op a + 1
+                        d = @op x * y
+                    end
+                end
+
+                @test ctx.graph.graph == op_ctx.graph.graph
             end
         end
     end
