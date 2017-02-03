@@ -76,7 +76,7 @@ stages:
   script:
     - source setup-julia export
     - julia --depwarn=no -e "Pkg.clone(pwd()); Pkg.build(\"$PKG_NAME\"); Pkg.add(\"Documenter\"); Pkg.checkout(\"Documenter\")"
-    - julia --depwarn=no -e "cd(Pkg.dir(\"$PKG_NAME\", \"docs\")); include(\"make.jl\"); run(\`mkdocs build\`)"
-    - julia --depwarn=no -e "const DOCS_DIR = joinpath(\"/mnt\", \"docs\", \"$CI_PROJECT_NAMESPACE\", \"$CI_PROJECT_NAME\", \"$CI_BUILD_REF_NAME\"); mkpath(DOCS_DIR); cp(Pkg.dir(\"$PKG_NAME\", \"docs\", \"site\"), DOCS_DIR; remove_destination=true, follow_symlinks=true)"
+    - julia --depwarn=no -e "cd(Pkg.dir(\"$PKG_NAME\", \"docs\")); include(\"make.jl\")"
+    - julia --depwarn=no -e "const DOCS_DIR = joinpath(\"/mnt\", \"docs\", \"$CI_PROJECT_NAMESPACE\", \"$CI_PROJECT_NAME\", \"$CI_BUILD_REF_NAME\"); mkpath(DOCS_DIR); cp(Pkg.dir(\"$PKG_NAME\", \"docs\", \"build\"), DOCS_DIR; remove_destination=true, follow_symlinks=true)"
   after_script:
     - ./setup-julia clean
