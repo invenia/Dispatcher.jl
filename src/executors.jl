@@ -291,7 +291,7 @@ type AsyncExecutor <: Executor
 end
 
 function AsyncExecutor(retries=5, retry_on::Array{Function}=Function[])
-    return ParallelExecutor(retries, retry_on)
+    return AsyncExecutor(retries, retry_on)
 end
 
 " `retries` accessor for AsyncExecutor returns the number of retries per node."
