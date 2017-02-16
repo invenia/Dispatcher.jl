@@ -36,7 +36,8 @@ A pre-processing `run!` method which runs a subset of a graph, ending in
 `nodes` and using `input_nodes` to replace nodes with fixed values (and
 ignoring nodes for which all paths descend to `input_nodes`).
 
-Returns `nodes`.
+Returns an array containing a `Result{DispatchNode, DependencyError}` for each node in
+`nodes`, in that order.
 """
 function run!{T<:DispatchNode, S<:DispatchNode}(
     exec::Executor,
@@ -53,13 +54,23 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
 
     reduced_ctx.graph = subgraph(ctx.graph, nodes, input_node_keys)
 
+    if is_cyclic(reduced_ctx.graph.graph)
+        throw(ExecutorError(
+            "Dispatcher can only run graphs without circular dependencies",
+        ))
+    end
+
     # replace nodes in input_map with their values
     for (node, val) in chain(zip(input_nodes, imap(fetch, input_nodes)), input_map)
         node_id = reduced_ctx.graph.nodes[node]
         reduced_ctx.graph.nodes[node_id] = DataNode(val)
     end
 
-    return run!(exec, reduced_ctx; throw_error=throw_error)
+    prepare!(exec, reduced_ctx)
+    node_results = dispatch!(exec, reduced_ctx; throw_error=throw_error)
+
+    # select the results requested by the `nodes` argument
+    return DispatchResult[node_results[reduced_ctx.graph.nodes[node]] for node in nodes]
 end
 
 
@@ -70,15 +81,8 @@ dispatches `run!` calls for all nodes in its graph.
 Users will almost never want to add methods to this function for different
 `Executor` subtypes; overriding `dispatch!` is the preferred pattern.
 """
-function run!(exec::Executor, ctx::DispatchContext; throw_error=true)
-    if is_cyclic(ctx.graph.graph)
-        throw(ExecutorError(
-            "Dispatcher can only run graphs without circular dependencies",
-        ))
-    end
-
-    prepare!(exec, ctx)
-    return dispatch!(exec, ctx; throw_error=throw_error)
+function run!(exec::Executor, ctx::DispatchContext; kwargs...)
+    return run!(exec, ctx, collect(DispatchNode, nodes(ctx)); kwargs...)
 end
 
 """

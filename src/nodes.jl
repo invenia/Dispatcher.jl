@@ -24,6 +24,8 @@ the `dependencies` function.
 """
 abstract DispatchNode <: Base.AbstractRemoteRef
 
+typealias DispatchResult Result{DispatchNode, DependencyError}
+
 # default methods assume there is no synchronization involved in retrieving
 # data
 Base.isready(dn::DispatchNode) = true

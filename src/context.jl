@@ -46,3 +46,6 @@ function add!(ctx::DispatchContext, node::DispatchNode)
 
     return node
 end
+
+"Return an iterable of all nodes stored in the `DispatchContext`'s graph."
+nodes(ctx::DispatchContext) = nodes(ctx.graph)

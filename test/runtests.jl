@@ -1,4 +1,5 @@
 using Dispatcher
+using ResultTypes
 using Base.Test
 
 import LightGraphs
@@ -373,13 +374,18 @@ end
                 c = add!(ctx, op)
 
                 ret = run!(exec, ctx, [b])
-                @test b === ret[1]
+                @test length(ret) == 1
+                @test !iserror(ret[1])
+                @test b === unwrap(ret[1])
 
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
+                results = run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
                 @test fetch(comm) == 7
+                @test length(results) == 1
+                @test !iserror(results[1])
+                @test unwrap(results[1]) === c
             end
 
             @testset "Partial (array input)" begin
@@ -406,14 +412,19 @@ end
                 end
                 c = add!(ctx, op)
 
-                b_ret, = run!(exec, ctx, [b])
-                @test b === b_ret
+                b_ret = run!(exec, ctx, [b])
+                @test length(b_ret) == 1
+                @test !iserror(b_ret[1])
+                @test unwrap(b_ret[1]) === b
 
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                run!(exec, ctx, [c], [a])
+                results = run!(exec, ctx, [c], [a])
                 @test fetch(comm) == 7
+                @test length(results) == 1
+                @test !iserror(results[1])
+                @test unwrap(results[1]) === c
             end
 
             @testset "No cycles allowed" begin
@@ -448,7 +459,10 @@ end
 
                 result = run!(exec, ctx, [d])
 
-                @test fetch(result[1]) == 24
+                @test length(result) == 1
+                @test !iserror(result[1])
+                @test unwrap(result[1]) === d
+                @test fetch(unwrap(result[1])) == 24
             end
         end
 
@@ -550,7 +564,9 @@ end
                     @test_throws DependencyError run!(exec, ctx)
                 end
                 prepare!(exec, ctx)
-                @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
+                @test any(run!(exec, ctx; throw_error=false)) do result
+                    iserror(result) && isa(unwrap_error(result), DependencyError)
+                end
                 @test !isready(comm)
                 close(comm)
             end
@@ -607,7 +623,9 @@ end
                     end
 
                     prepare!(exec, ctx)
-                    @test any(x -> isa(x, DependencyError), run!(exec, ctx; throw_error=false))
+                    @test any(run!(exec, ctx; throw_error=false)) do result
+                        iserror(result) && isa(unwrap_error(result), DependencyError)
+                    end
                     @test !isready(comm)
                     close(comm)
                 finally

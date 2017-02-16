@@ -3,6 +3,7 @@ module Dispatcher
 export DispatchContext,
     DispatchGraph,
     DispatchNode,
+    DispatchResult,
     DataNode,
     IndexNode,
     Op,
@@ -30,6 +31,7 @@ using DataStructures
 using DeferredFutures
 using Iterators
 using LightGraphs
+using ResultTypes
 
 abstract DispatcherError <: Exception
 
