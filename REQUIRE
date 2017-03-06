@@ -1,5 +1,5 @@
 julia 0.5-
-LightGraphs
+LightGraphs 0.7.0 0.8.0
 Iterators
 DeferredFutures 0.2.0
 DataStructures
