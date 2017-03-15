@@ -24,12 +24,27 @@ the `dependencies` function.
 """
 abstract DispatchNode <: Base.AbstractRemoteRef
 
-# default methods assume there is no synchronization involved in retrieving
-# data
-Base.isready(dn::DispatchNode) = true
-Base.wait(dn::DispatchNode) = nothing
+typealias DispatchResult Result{DispatchNode, DependencyError}
 
 """
+    isready(node::DispatchNode) -> Bool
+
+Determine whether a node has an available result.
+The default method assumes no synchronization is involved in retrieving that result.
+"""
+Base.isready(node::DispatchNode) = true
+
+"""
+    wait(node::DispatchNode)
+
+Block the current task until a node has a result available.
+"""
+Base.wait(node::DispatchNode) = nothing
+
+"""
+    dependencies(node::DispatchNode) -> Tuple{Vararg{DispatchNode}}
+
+Return all dependencies which must be ready before executing this node.
 Unless given a `dependencies` method, a `DispatchNode` will be assumed to have
 no dependencies.
 """
@@ -40,12 +55,18 @@ dependencies(node::DispatchNode) = ()
 Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
 
 """
-A blank method for no-op nodes or nodes which simply reference other nodes.
+    prepare!(node::DispatchNode)
+
+Execute some action on a node before dispatching nodes via an `Executor`.
+The default method performs no action.
 """
 prepare!(node::DispatchNode) = nothing
 
 """
-A blank method for no-op nodes or nodes which simply reference other nodes.
+    run!(node::DispatchNode)
+
+Execute a node's action as part of dispatch.
+The default method performs no action.
 """
 run!(node::DispatchNode) = nothing
 
@@ -53,15 +74,19 @@ run!(node::DispatchNode) = nothing
 """
 A `DataNode` is a `DispatchNode` which wraps a piece of static data.
 """
-type DataNode{T} <: DispatchNode
+@auto_hash_equals type DataNode{T} <: DispatchNode
     data::T
 end
 
-Base.fetch(dn::DataNode) = dn.data
+"""
+    fetch{T}(node::DataNode{T}) -> T
+
+Immediately return the data contained in a `DataNode`.
+"""
+Base.fetch(node::DataNode) = node.data
 
 """
-An `Op` is a `DispatchNode` which wraps a function which is executed when the
-`Op` is run.
+An `Op` is a `DispatchNode` which wraps a function which is executed when the `Op` is run.
 The result of that function call is stored in the `result` `DeferredFuture`.
 Any `DispatchNode`s which appear in the args or kwargs values will be noted as
 dependencies.
@@ -76,20 +101,38 @@ end
 
 Op(func::Function, args...; kwargs...) = Op(DeferredFuture(), func, args, kwargs)
 
-function dependencies(node::Op)
+"""
+    dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}
+
+Return all dependencies which must be ready before executing this `Op`.
+This will be all `DispatchNode`s in the `Op`'s function `args` and `kwargs`.
+"""
+function dependencies(op::Op)
     filter(x->isa(x, DispatchNode), chain(
-        node.args,
-        imap(pair->pair[2], node.kwargs)
+        op.args,
+        imap(pair->pair[2], op.kwargs)
     ))
 end
 
+"""
+    isready(op::Op) -> Bool
+
+Determine whether an `Op` has an available result.
+"""
 Base.isready(op::Op) = isready(op.result)
+
+"""
+    wait(op::Op)
+
+Wait until an `Op` has an available result.
+"""
 Base.wait(op::Op) = wait(op.result)
 
 """
-`fetch` will grab the result of the `Op` and throw
-`DependencyError` in the condition that the result is a
-`DependencyError`.
+    fetch(op::Op) -> Any
+
+Return the result of the `Op`. Block until it is available. Throw `DependencyError` in the
+event that the result is a `DependencyError`.
 """
 function Base.fetch(op::Op)
     ret = fetch(op.result)
@@ -102,8 +145,9 @@ function Base.fetch(op::Op)
 end
 
 """
-`prepare!` method for `Op` which replaces its result field
-with a fresh, empty one.
+    prepare!(op::Op)
+
+Replace an `Op`'s result field with a fresh, empty one.
 """
 function prepare!(op::Op)
     op.result = DeferredFuture()
@@ -111,18 +155,21 @@ function prepare!(op::Op)
 end
 
 """
-`run!` method for `Op` which stores its function's
-output in its `result` `DeferredFuture`.
-Arguments to the function which are `DispatchNode`s
-are substituted with their value when running.
+    run!(op::Op)
+
+Fetch an `Op`'s dependencies and execute its function. Store the result in its
+`result::DeferredFuture` field.
 """
 function run!(op::Op)
+    # fetch dependencies into a Dict{DispatchNode, Any}
+    deps = asyncmap(dependencies(op)) do node
+        info("Waiting on arg = $(node)")
+        node => fetch(node)
+    end |> Dict
+
     args = map(op.args) do arg
         if isa(arg, DispatchNode)
-            if isa(arg, Op)
-                info("Waiting on arg = $(arg.result)")
-            end
-            return fetch(arg)
+            return deps[arg]
         else
             return arg
         end
@@ -130,16 +177,14 @@ function run!(op::Op)
 
     kwargs = map(op.kwargs) do kwarg
         if isa(kwarg.second, DispatchNode)
-            if isa(kwarg.second, Op)
-                info("Waiting on kwarg = $(kwarg.second.result)")
-            end
-            return (kwarg.first => fetch(kwarg.second))
+            return (kwarg.first => deps[kwarg.second])
         else
             return kwarg
         end
     end
 
-    return put!(op.result, op.func(args...; kwargs...))
+    put!(op.result, op.func(args...; kwargs...))
+    return nothing
 end
 
 """
@@ -161,20 +206,150 @@ In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
 @auto_hash_equals type IndexNode{T<:DispatchNode} <: DispatchNode
     node::T
     index::Int
+    result::DeferredFuture
 end
 
+IndexNode(node::DispatchNode, index) = IndexNode(node, index, DeferredFuture())
+
+"""
+    dependencies(node::IndexNode) -> Tuple{DispatchNode}
+
+Return the dependency that this node will fetch data (at a certain index) from.
+"""
 dependencies(node::IndexNode) = (node.node,)
 
-Base.fetch(node::IndexNode) = fetch(node.node)[node.index]
-Base.isready(node::IndexNode) = isready(node.node)
-Base.wait(node::IndexNode) = wait(node.node)
+"""
+    fetch(node::IndexNode) -> Any
+
+Return the stored result of indexing.
+"""
+function Base.fetch(node::IndexNode)
+    fetch(node.result)
+end
+
+"""
+    isready(node::IndexNode) -> Bool
+
+Determine whether an `IndexNode` has an available result.
+"""
+Base.isready(node::IndexNode) = isready(node.result)
+
+"""
+    wait(node::IndexNode)
+
+Wait until an `IndexNode` has an available result.
+"""
+Base.wait(node::IndexNode) = wait(node.result)
+
+"""
+    prepare!(node::IndexNode)
+
+Replace an `IndexNode`'s result field with a fresh, empty one.
+"""
+function prepare!(node::IndexNode)
+    node.result = DeferredFuture()
+end
+
+"""
+    run!(node::IndexNode) -> DeferredFuture
+
+Fetch data from the `IndexNode`'s parent at the `IndexNode`'s index, performing the indexing
+operation on the process where the data lives. Store the data from that index in a
+`DeferredFuture` in the `IndexNode`.
+"""
+function run!{T<:Union{Op, IndexNode}}(node::IndexNode{T})
+    put!(node.result, node.node.result[node.index])
+    return nothing
+end
+
+"""
+    run!(node::IndexNode) -> DeferredFuture
+
+Fetch data from the `IndexNode`'s parent at the `IndexNode`'s index, performing the indexing
+operation on the process where the data lives. Store the data from that index in a
+`DeferredFuture` in the `IndexNode`.
+"""
+function run!(node::IndexNode)
+    put!(node.result, fetch(node.node)[node.index])
+    return nothing
+end
+
+@auto_hash_equals type CleanupNode{T<:DispatchNode} <: DispatchNode
+    parent_node::T
+    child_nodes::Vector{DispatchNode}
+    is_finished::DeferredFuture
+end
+
+"""
+    CleanupNode(parent_node::DispatchNode, child_nodes::Vector{DispatchNode}) -> CleanupNode
+
+Create a `CleanupNode` to clean up the parent node's results when the child nodes have
+completed.
+"""
+function CleanupNode(parent_node, child_nodes)
+    CleanupNode(parent_node, child_nodes, DeferredFuture())
+end
+
+"""
+    dependencies(node::CleanupNode) -> Tuple{Vararg{DispatchNode}}
+
+Return the nodes the `CleanupNode` must wait for before cleaning up (the parent and child
+nodes).
+"""
+dependencies(node::CleanupNode) = (node.parent_node, node.child_nodes...)
+
+function Base.fetch{T<:CleanupNode}(node::T)
+    throw(ArgumentError("DispatchNodes of type $T cannot have dependencies"))
+end
+
+"""
+    isready(node::CleanupNode) -> Bool
+
+Determine whether a `CleanupNode` has completed its cleanup.
+"""
+Base.isready(node::CleanupNode) = isready(node.is_finished)
+
+"""
+    wait(node::CleanupNode)
+
+Block the current task until a `CleanupNode` has completed its cleanup.
+"""
+Base.wait(node::CleanupNode) = wait(node.is_finished)
+
+"""
+    prepare!(node::IndexNode)
+
+Replace an `CleanupNode`'s completion status field with a fresh, empty one.
+"""
+function prepare!(node::CleanupNode)
+    node.is_finished = DeferredFuture()
+end
+
+"""
+    run!(node::CleanupNode{Op})
+
+Wait for all of the `CleanupNode`'s dependencies to finish, then clean up the parent node's
+data.
+"""
+function run!{T<:Op}(node::CleanupNode{T})
+    for dependency in dependencies(node)
+        wait(dependency)
+    end
+
+    # finalize(node.parent_node.result)
+    reset!(node.parent_node.result)
+    # finalize(node.parent_node.result)
+    @everywhere gc()
+    put!(node.is_finished, true)
+    return nothing
+end
 
 # Here we implement iteration on DispatchNodes in order to perform the tuple
 # unpacking of function results which people expect. The end result is this:
 #   x = Op(Func, arg)
 #   a, b = x
-#   @assert a == Result(x, 1)
-#   @assert b == Result(x, 2)
+#   @assert a == IndexNode(x, 1)
+#   @assert b == IndexNode(x, 2)
 
 Base.start(node::DispatchNode) = 1
 Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
@@ -194,12 +369,32 @@ type NodeSet
     node_dict::ObjectIdDict
 end
 
+"""
+    NodeSet() -> NodeSet
+
+Create a new empty `NodeSet`.
+"""
 NodeSet() = NodeSet(Dict{Int, DispatchNode}(), ObjectIdDict())
 
+"""
+    length(ns::NodeSet) -> Integer
+
+Return the number of nodes in a node set.
+"""
 Base.length(ns::NodeSet) = length(ns.id_dict)
 
+"""
+    in(node::DispatchNode, ns::NodeSet) -> Bool
+
+Determine whether a node is in a node set.
+"""
 Base.in(node::DispatchNode, ns::NodeSet) = node in keys(ns.node_dict)
 
+"""
+    push!(ns::NodeSet, node::DispatchNode) -> NodeSet
+
+Add a node to a node set. Return the first argument.
+"""
 function Base.push!(ns::NodeSet, node::DispatchNode)
     if !(node in ns)
         new_number = length(ns) + 1
@@ -209,8 +404,13 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
     return ns
 end
 
-"Return the node numbers of all nodes in `nodes` which are present in `ns`"
-function Base.findin(nodes, ns::NodeSet)
+"""
+    findin(ns::NodeSet, nodes) -> Vector{Int}
+
+Return the node numbers of all nodes in the node set whcih are present in the `nodes`
+iterable of `DispatchNode`s.
+"""
+function Base.findin(ns::NodeSet, nodes)
     numbers = Int[]
     for node in nodes
         number = get(ns.node_dict, node, 0)
@@ -222,23 +422,43 @@ function Base.findin(nodes, ns::NodeSet)
     return numbers
 end
 
-"Return an iterable of all nodes stored in the `NodeSet`"
+"""
+    nodes(ns::NodeSet) ->
+
+Return an iterable of all nodes stored in the `NodeSet`
+"""
 nodes(ns::NodeSet) = keys(ns.node_dict)
 
-Base.getindex(ns::NodeSet, id::Int) = ns.id_dict[id]
+"""
+    getindex(ns::NodeSet, node_id::Int) -> DispatchNode
+
+Return the `DispatchNode` from a node set corresponding to a given integer id.
+"""
+Base.getindex(ns::NodeSet, node_id::Int) = ns.id_dict[node_id]
+
+"""
+    getindex(ns::NodeSet, node::DispatchNode) -> Int
+
+Return the integer id from a node set corresponding to a given `DispatchNode`.
+"""
 Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
 
 # there is no setindex!(::NodeSet, ::Int, ::DispatchNode) because of the way
 # LightGraphs stores graphs as contiguous ranges of integers.
 
-"Replaces the node corresponding to `id` with `node`"
-function Base.setindex!(ns::NodeSet, node::DispatchNode, id::Int)
-    if id in keys(ns.id_dict)
-        old_node = ns.id_dict[id]
+"""
+    setindex!(ns::NodeSet, node::DispatchNode, node_id::Int) -> NodeSet
+
+Replace the node corresponding to a given integer id with a given `DispatchNode`. Return
+the first argument.
+"""
+function Base.setindex!(ns::NodeSet, node::DispatchNode, node_id::Int)
+    if node_id in keys(ns.id_dict)
+        old_node = ns.id_dict[node_id]
         delete!(ns.node_dict, old_node)
     end
 
-    ns.node_dict[node] = id
-    ns.id_dict[id] = node
+    ns.node_dict[node] = node_id
+    ns.id_dict[node_id] = node
     ns
 end

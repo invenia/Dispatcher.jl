@@ -10,6 +10,8 @@ end
 Base.copy(ctx::DispatchContext) = DispatchContext(ctx.graph, ctx.meta)
 
 """
+    DispatchContext(; kwargs...) -> DispatchContext
+
 Creates an empty `DispatchContext` with keyword arguments stored in metadata.
 """
 function DispatchContext(; kwargs...)
@@ -25,10 +27,12 @@ Base.getindex(ctx::DispatchContext, key) = ctx.meta[key]
 Base.setindex!(ctx::DispatchContext, value, key) = ctx.meta[key] = value
 
 """
-Adds a `DispatchNode` to the `DispatchContext`'s graph and records
-dependencies.
+    add!(ctx::DispatchContext, node::DispatchNode) -> DispatchNode
 
-Returns the `DispatchNode` which was added.
+Add a `DispatchNode` to the `DispatchContext`'s graph and record its dependencies in the
+graph.
+
+Return the `DispatchNode` which was added.
 """
 function add!(ctx::DispatchContext, node::DispatchNode)
     push!(ctx.graph, node)
@@ -46,3 +50,10 @@ function add!(ctx::DispatchContext, node::DispatchNode)
 
     return node
 end
+
+"""
+    nodes(ctx::DispatchContext)
+
+Return an iterable of all nodes stored in the `DispatchContext`'s graph.
+"""
+nodes(ctx::DispatchContext) = nodes(ctx.graph)
