@@ -1,4 +1,6 @@
 """
+    @node Node(...)
+
 The `@node` macro makes it more convenient to add nodes to the computation
 graph while in a `@dispatch_context` block.
 
@@ -16,6 +18,8 @@ macro node(ex)
 end
 
 """
+    @op func(...)
+
 The `@op` macro makes it more convenient to add `Op` nodes to the computation
 graph while in a `@dispatch_context` block. It translates a function call into
 an `Op` call, effectively deferring the computation.
@@ -34,6 +38,8 @@ macro op(ex)
 end
 
 """
+    @include component_function(...)
+
 The `@include` macro makes it more convenient to splice component subgraphs into the
 computation graph while in a `@dispatch_context` block.
 
@@ -45,6 +51,8 @@ is equivalent to
 a = sort(ctx, 1:10; rev=true)
 ```
 where `ctx` is a variable created by the surrounding `@dispatch_context`.
+
+Usually, these component functions are created using a `@component` annotation.
 """
 macro include(ex)
     annotate(ex, :dispatchinclude)
@@ -55,6 +63,8 @@ function annotate(ex::Expr, head::Symbol, args...)
 end
 
 """
+    @component function ... end
+
 Translate a function definition so that its first argument is a DispatchContext and cause
 all `@op` and `@node` macros within the function to use said DispatchContext.
 """
@@ -75,6 +85,8 @@ macro component(func::Expr)
 end
 
 """
+    @dispatch_context begin ... end
+
 Anonymously create and return a DispatchContext. Accepts a block argument and
 causes all `@op` and `@node` macros within that block to use said
 DispatchContext.
