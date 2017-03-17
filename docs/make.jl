@@ -8,7 +8,6 @@ makedocs(
         "Home" => "index.md",
         "Manual" => "pages/manual.md",
         "API" => "pages/api.md",
-        "Index" => "pages/index.md",
     ],
     sitename = "Dispatcher.jl",
     authors = "Invenia Technical Computing",
