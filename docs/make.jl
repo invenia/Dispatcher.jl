@@ -10,7 +10,6 @@ makedocs(
         "API" => "pages/api.md",
         "Index" => "pages/index.md",
     ],
-    repo = "https://***REMOVED***/blob/{commit}{path}#L{line}",
     sitename = "Dispatcher.jl",
     authors = "Invenia Technical Computing",
     assets = ["assets/invenia.css"],
