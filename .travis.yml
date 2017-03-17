@@ -6,6 +6,10 @@ os:
 julia:
   - release
   - nightly
+matrix:
+  allow_failures:
+    - julia: nightly
+  fast_finish: true
 notifications:
   email: false
 # uncomment the following lines to override the default test script
@@ -13,7 +17,5 @@ notifications:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Dispatcher"); Pkg.test("Dispatcher"; coverage=true)'
 after_success:
-  # push coverage results to Coveralls
-  - julia -e 'cd(Pkg.dir("Dispatcher")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("Dispatcher")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
