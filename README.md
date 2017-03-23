@@ -6,7 +6,7 @@
 
 Dispatcher is a tool for building and executing a computation graph given a series of dependent operations.
 
-Documentation: [latest](./docs/)
+Documentation: [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://invenia.github.io/Dispatcher.jl/latest)
 
 ## Overview
 

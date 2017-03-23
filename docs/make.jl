@@ -13,3 +13,11 @@ makedocs(
     authors = "Invenia Technical Computing",
     assets = ["assets/invenia.css"],
 )
+
+deploydocs(
+    repo = "github.com/invenia/Dispatcher.jl.git",
+    julia = "release",
+    target = "build",
+    deps = nothing,
+    make = nothing,
+)

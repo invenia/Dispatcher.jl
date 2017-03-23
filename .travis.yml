@@ -19,3 +19,6 @@ notifications:
 after_success:
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("Dispatcher")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  # generate docs
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("Dispatcher")); include(joinpath("docs", "make.jl"))'
