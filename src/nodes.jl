@@ -162,8 +162,10 @@ Fetch an `Op`'s dependencies and execute its function. Store the result in its
 """
 function run!(op::Op)
     # fetch dependencies into a Dict{DispatchNode, Any}
+    logger = get_logger(current_module())
+
     deps = asyncmap(dependencies(op)) do node
-        info("Waiting on arg = $(node)")
+        info(logger, "Waiting on arg = $(node)")
         node => fetch(node)
     end |> Dict
 

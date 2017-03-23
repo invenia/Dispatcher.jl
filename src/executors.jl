@@ -272,22 +272,24 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     ns = ctx.graph.nodes
 
     function run_inner!(id::Int)
+        logger = get_logger(current_module())
+
         node = ns[id]
 
         try
             if isa(node, Union{Op, IndexNode})
-                info("Running node $id - $(typeof(node)) -> result $(node.result)")
+                info(logger, "Running node $id - $(typeof(node)) -> result $(node.result)")
                 reset!(ns[id].result)
             else
-                info("Running node $id - $(typeof(node))")
+                info(logger, "Running node $id - $(typeof(node))")
             end
 
             cond = dispatch!(exec, node)
-            # info("Waiting on $cond")
+            # info(logger, "Waiting on $cond")
             wait(cond)
-            info("Node $id complete.")
+            info(logger, "Node $id complete.")
         catch err
-            warn("Node $id errored with $err")
+            warn(logger, "Node $id errored with $err")
 
             if isa(err, RemoteException)
 
@@ -318,7 +320,8 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     This is the default behaviour.
     """
     function on_error_inner!(err::Exception)
-        warn("Unhandled error $(typeof(err))")
+        logger = get_logger(current_module())
+        warn(logger, "Unhandled error $(typeof(err))")
         throw(err)
     end
 
@@ -331,7 +334,8 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     error.
     """
     function on_error_inner!(err::DependencyError)
-        warn("Handling DependencyError on $(err.id)")
+        logger = get_logger(current_module())
+        warn(logger, "Handling DependencyError on $(err.id)")
 
         node = ctx.graph.nodes[err.id]
         if isa(node, Union{Op, IndexNode})
@@ -503,8 +507,9 @@ return false.
 """
 function allow_retry(conditions::Vector{Function})
     function inner_allow_retry(de::DependencyError)
+        logger = get_logger(current_module())
         ret = any(f -> tmp = f(de.err), conditions)
-        info("Retry ($ret) on $(de.err)")
+        info(logger, "Retry ($ret) on $(de.err)")
         return ret
     end
 

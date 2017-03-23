@@ -1,9 +1,19 @@
 using Dispatcher
 using ResultTypes
 using Base.Test
+using Memento
 
 import LightGraphs
 
+basic_config("info"; fmt="[{level} | {name}]: {msg}")
+logger = get_logger(current_module())
+
+function test_addproc(x::Int; level="info")
+    ret = addproc(x)
+    @everywhere using Dispatcher
+    @everywhere using Memento
+    @everywhere basic_config(level; fmt="[{level} | {name}]: {msg}")
+end
 
 @testset "Graph" begin
     @testset "Adding" begin
@@ -389,7 +399,7 @@ end
             end
 
             @testset "Partial (array input)" begin
-                info("Partial array")
+                info(logger, "Partial array")
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
@@ -636,7 +646,7 @@ end
             @testset "$i procs removed (delay $s)" for i in 1:2, s in 0.1:0.1:0.6
                 function rand_sleep()
                     sec = rand(0.1:0.05:0.4)
-                    # info("sleeping for $sec")
+                    # info(logger, "sleeping for $sec")
                     sleep(sec)
                 end
 

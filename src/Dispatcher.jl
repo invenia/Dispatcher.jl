@@ -31,6 +31,7 @@ using DataStructures
 using DeferredFutures
 using Iterators
 using LightGraphs
+using Memento
 using ResultTypes
 
 abstract DispatcherError <: Exception
