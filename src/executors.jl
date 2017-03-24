@@ -272,16 +272,14 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     ns = ctx.graph.nodes
 
     function run_inner!(id::Int)
-        logger = get_logger(current_module())
-
         node = ns[id]
 
         try
             if isa(node, Union{Op, IndexNode})
-                info(logger, "Running node $id - $(typeof(node)) -> result $(node.result)")
+                debug(logger, "Running node $id -> $(node.result)")
                 reset!(ns[id].result)
             else
-                info(logger, "Running node $id - $(typeof(node))")
+                debug(logger, "Running node $id")
             end
 
             cond = dispatch!(exec, node)
@@ -289,7 +287,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
             wait(cond)
             info(logger, "Node $id complete.")
         catch err
-            warn(logger, "Node $id errored with $err")
+            debug(logger, "Node $id errored with $err")
 
             if isa(err, RemoteException)
 
@@ -320,7 +318,6 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     This is the default behaviour.
     """
     function on_error_inner!(err::Exception)
-        logger = get_logger(current_module())
         warn(logger, "Unhandled error $(typeof(err))")
         throw(err)
     end
@@ -334,8 +331,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     error.
     """
     function on_error_inner!(err::DependencyError)
-        logger = get_logger(current_module())
-        warn(logger, "Handling DependencyError on $(err.id)")
+        notice(logger, "Handling DependencyError on $(err.id)")
 
         node = ctx.graph.nodes[err.id]
         if isa(node, Union{Op, IndexNode})
@@ -382,7 +378,12 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
         on_error_inner!
     )
 
-    return asyncmap(f, 1:length(ctx.graph.nodes))
+    len = length(ctx.graph.nodes)
+    info(logger, "Executing graph $len nodes.")
+    res = asyncmap(f, 1:len)
+    info(logger, "All $len nodes executed.")
+
+    return res
 end
 
 """
@@ -507,9 +508,8 @@ return false.
 """
 function allow_retry(conditions::Vector{Function})
     function inner_allow_retry(de::DependencyError)
-        logger = get_logger(current_module())
         ret = any(f -> tmp = f(de.err), conditions)
-        info(logger, "Retry ($ret) on $(de.err)")
+        debug(logger, "Retry ($ret) on $(de.err)")
         return ret
     end
 
