@@ -18,6 +18,17 @@ end
 Base.showerror(io::IO, de::DependencyError) = showerror(io, de.err, de.trace, backtrace=false)
 
 """
+    summary(de::DependencyError)
+
+Retuns a string representation of the error with
+only the internal `Exception` type and the `id`
+"""
+function Base.summary(de::DependencyError)
+    err_type = split(string(typeof(de.err)), ',')[end]
+    return "DependencyError($err_type, $(de.id))"
+end
+
+"""
 A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
 the `dependencies` function.
@@ -25,6 +36,14 @@ the `dependencies` function.
 abstract DispatchNode <: Base.AbstractRemoteRef
 
 typealias DispatchResult Result{DispatchNode, DependencyError}
+
+"""
+    has_label(node::DispatchNode) -> Bool
+
+Returns true or false as to whether the
+node has a label (ie: a `get_label(node)` method)
+"""
+has_label(node::DispatchNode) = false
 
 """
     isready(node::DispatchNode) -> Bool
@@ -70,7 +89,6 @@ The default method performs no action.
 """
 run!(node::DispatchNode) = nothing
 
-
 """
 A `DataNode` is a `DispatchNode` which wraps a piece of static data.
 """
@@ -95,11 +113,72 @@ This is the most common `DispatchNode`.
 @auto_hash_equals type Op <: DispatchNode
     result::DeferredFuture
     func::Function
+    label::String
     args
     kwargs
 end
 
-Op(func::Function, args...; kwargs...) = Op(DeferredFuture(), func, args, kwargs)
+function Op(func::Function, args...; kwargs...)
+    Op(
+        DeferredFuture(),
+        func,
+        string(Symbol(func)),
+        args,
+        kwargs
+    )
+end
+
+"""
+    summary(op::Op)
+
+Returns a string representation of the `Op`
+with its label and the args/kwargs types.
+
+NOTE: if an arg/kwarg is a `DispatchNode` with a label
+it will be printed with that arg.
+"""
+function Base.summary(op::Op)
+    function val_summary(val)
+        result = split(string(typeof(val)), '.')[end]
+
+        if isa(val, DispatchNode) && has_label(val)
+            label = get_label(val)
+            result = "$result($label)"
+        end
+
+        return result
+    end
+
+    args = map(arg -> val_summary(arg), op.args)
+    kwargs = map(op.kwargs) do kwarg
+        "$(kwarg[1]) => $(val_summary(kwarg[2]))"
+    end
+
+    all_args = join([args..., kwargs...], ',')
+    return "Op($(op.label), $all_args)"
+end
+
+"""
+    has_label(op::Op) -> Bool
+
+Always return true as an `Op` will always
+have a label.
+"""
+has_label(op::Op) = true
+
+"""
+    get_label(op::Op) -> String
+
+Returns the op.label.
+"""
+get_label(op::Op) = op.label
+
+"""
+    set_label!(op::Op, label::String)
+
+Manually set the label for the op.
+"""
+set_label!(op::Op, label::String) = op.label = label
 
 """
     dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}
@@ -163,7 +242,7 @@ Fetch an `Op`'s dependencies and execute its function. Store the result in its
 function run!(op::Op)
     # fetch dependencies into a Dict{DispatchNode, Any}
     deps = asyncmap(dependencies(op)) do node
-        debug(logger, "Waiting $(node)")
+        debug(logger, "Waiting on $(summary(node))")
         node => fetch(node)
     end |> Dict
 
@@ -210,6 +289,14 @@ In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
 end
 
 IndexNode(node::DispatchNode, index) = IndexNode(node, index, DeferredFuture())
+
+"""
+    summary(node::IndexNode)
+
+Returns a string representation of the IndexNode with a summary of the wrapped
+node and the node index.
+"""
+Base.summary(node::IndexNode) = "IndexNode($(summary(node.node)), $(node.index))"
 
 """
     dependencies(node::IndexNode) -> Tuple{DispatchNode}
@@ -289,6 +376,14 @@ completed.
 function CleanupNode(parent_node, child_nodes)
     CleanupNode(parent_node, child_nodes, DeferredFuture())
 end
+
+"""
+    summary(node::CleanupNode)
+
+Returns a string representation of the CleanupNode with a summary of the wrapped 
+parent node.
+"""
+Base.summary(node::CleanupNode) = "CleanupNode($(summary(node.parent)))"
 
 """
     dependencies(node::CleanupNode) -> Tuple{Vararg{DispatchNode}}

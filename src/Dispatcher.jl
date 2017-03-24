@@ -11,7 +11,10 @@ export DispatchContext,
     add_edge!,
     nodes,
     dependencies,
-    add!
+    add!,
+    has_label,
+    get_label,
+    set_label!
 
 export Executor,
     AsyncExecutor,
