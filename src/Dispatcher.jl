@@ -39,7 +39,7 @@ using ResultTypes
 
 abstract DispatcherError <: Exception
 
-logger = get_logger(current_module())
+const logger = get_logger(current_module())
 
 include("nodes.jl")
 include("graph.jl")
