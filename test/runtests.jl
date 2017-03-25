@@ -5,10 +5,10 @@ using Memento
 
 import LightGraphs
 
-LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
+const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
 basic_config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
-logger = get_logger(current_module())
+const logger = get_logger(current_module())
 
 function test_addproc(x::Int; level=LOG_LEVEL)
     ret = addproc(x)

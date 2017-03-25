@@ -25,7 +25,7 @@ only the internal `Exception` type and the `id`
 """
 function Base.summary(de::DependencyError)
     err_type = split(string(typeof(de.err)), ',')[end]
-    return "DependencyError($err_type, $(de.id))"
+    return "DependencyError<$err_type, $(de.id)>"
 end
 
 """
@@ -138,24 +138,16 @@ NOTE: if an arg/kwarg is a `DispatchNode` with a label
 it will be printed with that arg.
 """
 function Base.summary(op::Op)
-    function val_summary(val)
-        result = split(string(typeof(val)), '.')[end]
+    args = join(map(value_summary, op.args), ", ")
+    kwargs = join(
+        map(op.kwargs) do kwarg
+            "$(kwarg[1]) => $(value_summary(kwarg[2]))"
+        end,
+        ", "
+    )
 
-        if isa(val, DispatchNode) && has_label(val)
-            label = get_label(val)
-            result = "$result($label)"
-        end
-
-        return result
-    end
-
-    args = map(arg -> val_summary(arg), op.args)
-    kwargs = map(op.kwargs) do kwarg
-        "$(kwarg[1]) => $(val_summary(kwarg[2]))"
-    end
-
-    all_args = join([args..., kwargs...], ',')
-    return "Op($(op.label), $all_args)"
+    all_args = join(filter(!isempty, [op.label, args, kwargs]), ", ")
+    return "Op<$all_args>"
 end
 
 """
@@ -296,7 +288,7 @@ IndexNode(node::DispatchNode, index) = IndexNode(node, index, DeferredFuture())
 Returns a string representation of the IndexNode with a summary of the wrapped
 node and the node index.
 """
-Base.summary(node::IndexNode) = "IndexNode($(summary(node.node)), $(node.index))"
+Base.summary(node::IndexNode) = "IndexNode<$(value_summary(node.node)), $(node.index)>"
 
 """
     dependencies(node::IndexNode) -> Tuple{DispatchNode}
@@ -380,10 +372,10 @@ end
 """
     summary(node::CleanupNode)
 
-Returns a string representation of the CleanupNode with a summary of the wrapped 
+Returns a string representation of the CleanupNode with a summary of the wrapped
 parent node.
 """
-Base.summary(node::CleanupNode) = "CleanupNode($(summary(node.parent)))"
+Base.summary(node::CleanupNode) = "CleanupNode<$(value_summary(node.parent))>"
 
 """
     dependencies(node::CleanupNode) -> Tuple{Vararg{DispatchNode}}
@@ -556,4 +548,21 @@ function Base.setindex!(ns::NodeSet, node::DispatchNode, node_id::Int)
     ns.node_dict[node] = node_id
     ns.id_dict[node_id] = node
     ns
+end
+
+function value_summary(val)
+    if isa(val, DispatchNode)
+        # Remove module name "Dispatcher." if present
+        pat = "Dispatcher."
+
+        if has_label(val)
+            type_name = replace(string(typeof(val)), pat, "")
+            label = get_label(val)
+            return "$type_name<$label>"
+        else
+            return replace(summary(val), pat, "")
+        end
+    else
+        return summary(val)
+    end
 end
