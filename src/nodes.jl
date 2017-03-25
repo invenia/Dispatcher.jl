@@ -24,7 +24,7 @@ Retuns a string representation of the error with
 only the internal `Exception` type and the `id`
 """
 function Base.summary(de::DependencyError)
-    err_type = split(string(typeof(de.err)), ',')[end]
+    err_type = replace(string(typeof(de.err)), "Dispatcher.", "")
     return "DependencyError<$err_type, $(de.id)>"
 end
 
@@ -124,7 +124,7 @@ function Op(func::Function, args...; kwargs...)
         func,
         string(Symbol(func)),
         args,
-        kwargs
+        kwargs,
     )
 end
 
