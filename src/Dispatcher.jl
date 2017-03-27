@@ -11,7 +11,10 @@ export DispatchContext,
     add_edge!,
     nodes,
     dependencies,
-    add!
+    add!,
+    has_label,
+    get_label,
+    set_label!
 
 export Executor,
     AsyncExecutor,
@@ -31,9 +34,12 @@ using DataStructures
 using DeferredFutures
 using Iterators
 using LightGraphs
+using Memento
 using ResultTypes
 
 abstract DispatcherError <: Exception
+
+const logger = get_logger(current_module())
 
 include("nodes.jl")
 include("graph.jl")

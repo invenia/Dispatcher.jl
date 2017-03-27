@@ -1,9 +1,21 @@
 using Dispatcher
 using ResultTypes
 using Base.Test
+using Memento
 
 import LightGraphs
 
+const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
+
+basic_config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
+const logger = get_logger(current_module())
+
+function test_addproc(x::Int; level=LOG_LEVEL)
+    ret = addproc(x)
+    @everywhere using Dispatcher
+    @everywhere using Memento
+    @everywhere basic_config(level; fmt="[{level} | {name}]: {msg}")
+end
 
 @testset "Graph" begin
     @testset "Adding" begin
@@ -315,10 +327,12 @@ end
                 comm = Channel{Float64}(2)
 
                 op = Op(()->3)
+                set_label!(op, "3")
                 @test isempty(dependencies(op))
                 a = add!(ctx, op)
 
                 op = Op((x)->x, 4)
+                set_label!(op, "four")
                 @test isempty(dependencies(op))
                 b = add!(ctx, op)
 
@@ -333,10 +347,12 @@ end
                 d = add!(ctx, op)
 
                 op = Op((x)->(factorial(x), factorial(2x)), c)
+                set_label!(op, "factorials")
                 @test c in dependencies(op)
                 e, f = add!(ctx, op)
 
                 op = Op((x)->put!(comm, x / 2), f)
+                set_label!(op, "put!")
                 @test f in dependencies(op)
                 g = add!(ctx, op)
 
@@ -359,18 +375,21 @@ end
                 comm = Channel{Float64}(3)
 
                 op = Op(()->(put!(comm, 4); comm))
+                set_label!(op, "put!(4)")
                 a = add!(ctx, op)
 
                 op = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 1)
                 end
+                set_label!(op, "put!(x + 1)")
                 b = add!(ctx, op)
 
                 op = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 2)
                 end
+                set_label!(op, "put!(x + 2)")
                 c = add!(ctx, op)
 
                 ret = run!(exec, ctx, [b])
@@ -389,7 +408,7 @@ end
             end
 
             @testset "Partial (array input)" begin
-                info("Partial array")
+                info(logger, "Partial array")
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
@@ -398,18 +417,21 @@ end
                 comm = Channel{Float64}(3)
 
                 op = Op(()->(put!(comm, 4); comm))
+                set_label!(op, "put!(4)")
                 a = add!(ctx, op)
 
                 op = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 1)
                 end
+                set_label!(op, "put!(x + 1)")
                 b = add!(ctx, op)
 
                 op = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 2)
                 end
+                set_label!(op, "put!(x + 2)")
                 c = add!(ctx, op)
 
                 b_ret = run!(exec, ctx, [b])
@@ -432,7 +454,9 @@ end
                 exec = AsyncExecutor()
 
                 a = Op(identity, 3)
+                set_label!(a, "3")
                 b = Op(identity, a)
+                set_label!(b, "a")
                 a.args = (b,)
 
                 @test_throws Exception begin
@@ -476,10 +500,12 @@ end
                 exec = ParallelExecutor()
 
                 op = Op(()->3)
+                set_label!(op, "3")
                 @test isempty(dependencies(op))
                 a = add!(ctx, op)
 
                 op = Op((x)->x, 4)
+                set_label!(op, "4")
                 @test isempty(dependencies(op))
                 b = add!(ctx, op)
 
@@ -494,10 +520,12 @@ end
                 d = add!(ctx, op)
 
                 op = Op((x)->(factorial(x), factorial(2x)), c)
+                set_label!(op, "factorials")
                 @test c in dependencies(op)
                 e, f = add!(ctx, op)
 
                 op = Op((x)->put!(comm, x / 2), f)
+                set_label!(op, "put!")
                 @test f in dependencies(op)
                 g = add!(ctx, op)
 
@@ -523,10 +551,12 @@ end
                 exec = AsyncExecutor()
 
                 op = Op(()->3)
+                set_label!(op, "3")
                 @test isempty(dependencies(op))
                 a = add!(ctx, op)
 
                 op = Op((x)->x, 4)
+                set_label!(op, "4")
                 @test isempty(dependencies(op))
                 b = add!(ctx, op)
 
@@ -547,10 +577,12 @@ end
                     ), c
                 )
 
+                set_label!(op, "ApplicationError")
                 @test c in dependencies(op)
                 e, f = add!(ctx, op)
 
                 op = Op((x)->put!(comm, x / 2), f)
+                set_label!(op, "put!")
                 @test f in dependencies(op)
                 g = add!(ctx, op)
 
@@ -581,10 +613,12 @@ end
                     exec = ParallelExecutor()
 
                     op = Op(()->3)
+                    set_label!(op, "3")
                     @test isempty(dependencies(op))
                     a = add!(ctx, op)
 
                     op = Op((x)->x, 4)
+                    set_label!(op, "4")
                     @test isempty(dependencies(op))
                     b = add!(ctx, op)
 
@@ -604,11 +638,12 @@ end
                             throw(ErrorException("Application Error"))
                         ), c
                     )
-
+                    set_label!(op, "ApplicationError")
                     @test c in dependencies(op)
                     e, f = add!(ctx, op)
 
                     op = Op((x)->put!(comm, x / 2), f)
+                    set_label!(op, "put!")
                     @test f in dependencies(op)
                     g = add!(ctx, op)
 
@@ -636,7 +671,7 @@ end
             @testset "$i procs removed (delay $s)" for i in 1:2, s in 0.1:0.1:0.6
                 function rand_sleep()
                     sec = rand(0.1:0.05:0.4)
-                    # info("sleeping for $sec")
+                    # info(logger, "sleeping for $sec")
                     sleep(sec)
                 end
 
@@ -654,6 +689,7 @@ end
                             return 3
                         end
                     )
+                    set_label!(op, "3")
                     @test isempty(dependencies(op))
                     a = add!(ctx, op)
 
@@ -663,6 +699,7 @@ end
                             return x
                         end, 4
                     )
+                    set_label!(op, "4")
                     @test isempty(dependencies(op))
                     b = add!(ctx, op)
 
@@ -672,6 +709,7 @@ end
                             max(x, y)
                         end, a, b
                     )
+                    set_label!(op, "max")
                     deps = dependencies(op)
                     @test a in deps
                     @test b in deps
@@ -683,6 +721,7 @@ end
                             return sqrt(x)
                         end, c
                     )
+                    set_label!(op, "sqrt")
                     @test c in dependencies(op)
                     d = add!(ctx, op)
 
@@ -692,6 +731,7 @@ end
                             return (factorial(x), factorial(2x))
                         end, c
                     )
+                    set_label!(op, "factorials")
                     @test c in dependencies(op)
                     e, f = add!(ctx, op)
 
@@ -701,6 +741,7 @@ end
                             return put!(comm, x / 2)
                         end, f
                     )
+                    set_label!(op, "put!")
                     @test f in dependencies(op)
                     g = add!(ctx, op)
 

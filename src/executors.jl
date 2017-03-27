@@ -275,25 +275,24 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
         node = ns[id]
 
         try
+            desc = summary(node)
+            info(logger, "Node $id ($desc): running.")
+
             if isa(node, Union{Op, IndexNode})
-                info("Running node $id - $(typeof(node)) -> result $(node.result)")
                 reset!(ns[id].result)
-            else
-                info("Running node $id - $(typeof(node))")
             end
 
             cond = dispatch!(exec, node)
-            # info("Waiting on $cond")
+            debug(logger, "Waiting on $cond")
             wait(cond)
-            info("Node $id complete.")
+            info(logger, "Node $id ($desc): complete.")
         catch err
-            warn("Node $id errored with $err")
+            debug(logger, "Node $id: errored with $err)")
 
-            if isa(err, RemoteException)
-
-                throw(DependencyError(
+            dep_err = if isa(err, RemoteException)
+                DependencyError(
                     err.captured.ex, err.captured.processed_bt, id
-                ))
+                )
             else
                 # Necessary because of a bug with empty stacktraces
                 # in base, but will be fixed in 0.6
@@ -304,8 +303,11 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
                     StackFrame[]
                 end
 
-                throw(DependencyError(err, trace, id))
+                DependencyError(err, trace, id)
             end
+
+            debug(logger, "Node $id: throwing $dep_err)")
+            throw(dep_err)
         end
 
         return ns[id]
@@ -318,7 +320,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     This is the default behaviour.
     """
     function on_error_inner!(err::Exception)
-        warn("Unhandled error $(typeof(err))")
+        warn(logger, "Unhandled Error: $(summary(err))")
         throw(err)
     end
 
@@ -331,7 +333,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     error.
     """
     function on_error_inner!(err::DependencyError)
-        warn("Handling DependencyError on $(err.id)")
+        notice(logger, "Handling Error: $(summary(err))")
 
         node = ctx.graph.nodes[err.id]
         if isa(node, Union{Op, IndexNode})
@@ -378,7 +380,12 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
         on_error_inner!
     )
 
-    return asyncmap(f, 1:length(ctx.graph.nodes))
+    len = length(ctx.graph.nodes)
+    info(logger, "Executing $len graph nodes.")
+    res = asyncmap(f, 1:len)
+    info(logger, "All $len nodes executed.")
+
+    return res
 end
 
 """
@@ -504,7 +511,7 @@ return false.
 function allow_retry(conditions::Vector{Function})
     function inner_allow_retry(de::DependencyError)
         ret = any(f -> tmp = f(de.err), conditions)
-        info("Retry ($ret) on $(de.err)")
+        debug(logger, "Retry ($ret) on $(summary(de))")
         return ret
     end
 
