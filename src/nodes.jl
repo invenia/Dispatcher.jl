@@ -553,17 +553,10 @@ function Base.setindex!(ns::NodeSet, node::DispatchNode, node_id::Int)
 end
 
 function value_summary(val)
-    if isa(val, DispatchNode)
-        # Remove module name "Dispatcher." if present
-        pat = "Dispatcher."
-
-        if has_label(val)
-            type_name = replace(string(typeof(val)), pat, "")
-            label = get_label(val)
-            return "$type_name<$label>"
-        else
-            return replace(summary(val), pat, "")
-        end
+    if isa(val, DispatchNode) && has_label(val)
+        type_name = typeof(val).name.name
+        label = get_label(val)
+        return "$type_name<$label>"
     else
         return summary(val)
     end
