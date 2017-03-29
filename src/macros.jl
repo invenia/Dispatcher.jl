@@ -110,7 +110,7 @@ macro dispatch_context(ex::Expr)
     ))
 end
 
-typealias BaseCaseNodes Union{Number, Symbol, MethodError}
+typealias BaseCaseNodes Union{Number, Symbol, String, MethodError}
 
 function process_nodes!(ex::Expr, ctx_sym::Symbol)
     if ex.head === :dispatchop
