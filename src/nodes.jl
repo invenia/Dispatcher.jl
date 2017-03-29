@@ -327,6 +327,7 @@ Replace an `IndexNode`'s result field with a fresh, empty one.
 """
 function prepare!(node::IndexNode)
     node.result = DeferredFuture()
+    return nothing
 end
 
 """
@@ -410,6 +411,7 @@ Replace an `CleanupNode`'s completion status field with a fresh, empty one.
 """
 function prepare!(node::CleanupNode)
     node.is_finished = DeferredFuture()
+    return nothing
 end
 
 """
