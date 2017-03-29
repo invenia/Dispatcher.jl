@@ -203,7 +203,6 @@ function subgraph(
 
             for vp in in_neighbors(graph.graph, v)
                 if !(vp in keeps)
-                    push!(keeps, vp)
                     push!(to_visit, vp)
                 end
             end
