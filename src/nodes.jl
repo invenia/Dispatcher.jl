@@ -151,10 +151,9 @@ function Base.summary(op::Op)
 end
 
 """
-    has_label(op::Op) -> Bool
+    has_label(::Op) -> Bool
 
-Always return true as an `Op` will always
-have a label.
+Always return `true` as an `Op` will always have a label.
 """
 has_label(op::Op) = true
 
@@ -166,9 +165,10 @@ Returns the op.label.
 get_label(op::Op) = op.label
 
 """
-    set_label!(op::Op, label::String)
+    set_label!(op::Op, label::AbstractString)
 
-Manually set the label for the op.
+Set the op's label.
+Returns its second argument.
 """
 set_label!(op::Op, label::AbstractString) = op.label = label
 
@@ -432,6 +432,121 @@ function run!{T<:Op}(node::CleanupNode{T})
     put!(node.is_finished, true)
     return nothing
 end
+
+@auto_hash_equals type CollectNode{T<:DispatchNode} <: DispatchNode
+    nodes::Vector{T}
+    result::DeferredFuture
+    label::String
+end
+
+"""
+    CollectNode{T<:DispatchNode}(nodes::Vector{T}) -> CollectNode{T}
+
+Create a node which gathers an array of nodes and stores an array of their results in its
+result field.
+"""
+function CollectNode{T<:DispatchNode}(nodes::Vector{T})
+    num_nodes = length(nodes)
+    plural_ending = num_nodes != 1 ? "s" : ""
+
+    CollectNode(
+        nodes,
+        DeferredFuture(),
+        "$num_nodes $(T.name.name)$plural_ending",
+    )
+end
+
+"""
+    CollectNode(nodes) -> CollectNode{DispatchNode}
+
+Create a CollectNode from any iterable of nodes.
+"""
+CollectNode(nodes) = CollectNode(collect(DispatchNode, nodes))
+
+"""
+    dependencies{T<:DispatchNode}(node::CollectNode{T}) -> Vector{T}
+
+Return the nodes this depends on which this node will collect.
+"""
+dependencies(node::CollectNode) = node.nodes
+
+"""
+    fetch(node::CollectNode) -> Vector
+
+Return the result of the collection.
+Block until it is available.
+"""
+Base.fetch(node::CollectNode) = fetch(node.result)
+
+"""
+    isready(node::CollectNode) -> Bool
+
+Determine whether a `CollectNode` has an available result.
+"""
+Base.isready(node::CollectNode) = isready(node.result)
+
+"""
+    wait(node::CollectNode)
+
+Block until a `CollectNode` has an available result.
+"""
+Base.wait(node::CollectNode) = wait(node.result)
+
+"""
+    prepare!(node::CollectNode)
+
+Initialize a `CollectNode` with a fresh result `DeferredFuture`.
+"""
+function prepare!(node::CollectNode)
+    node.result = DeferredFuture()
+    return nothing
+end
+
+"""
+    run!(node::CollectNode)
+
+Collect all of a `CollectNode`'s dependencies' results into a Vector and store that in this
+node's result field.
+Returns nothing.
+"""
+function run!(node::CollectNode)
+    parent_node_results = asyncmap(dependencies(node)) do parent_node
+        debug(logger, "Waiting on $(summary(parent_node))")
+        fetch(parent_node)
+    end
+
+    put!(node.result, parent_node_results)
+    return nothing
+end
+
+"""
+    get_label(node::CollectNode) -> String
+
+Returns the node.label.
+"""
+get_label(node::CollectNode) = node.label
+
+"""
+    set_label!(node::CollectNode, label::AbstractString) -> AbstractString
+
+Set the node's label.
+Returns its second argument.
+"""
+set_label!(node::CollectNode, label::AbstractString) = node.label = label
+
+"""
+    has_label(::CollectNode) -> Bool
+
+Always return `true` as an `Op` will always have a label.
+"""
+has_label(::CollectNode) = true
+
+"""
+    summary(node::CollectNode)
+
+Returns a string representation of the CollectNode with its label.
+"""
+Base.summary(node::CollectNode) = value_summary(node)
 
 # Here we implement iteration on DispatchNodes in order to perform the tuple
 # unpacking of function results which people expect. The end result is this:

@@ -763,4 +763,119 @@ end
             end
         end
     end
+
+    @testset "Examples" begin
+        @testset "Dask Do" begin
+            function slowadd(x, y)
+                return x + y
+            end
+
+            function slowinc(x)
+                return x + 1
+            end
+
+            function slowsum(a...)
+                return sum(a)
+            end
+
+            data = [1, 2, 3]
+
+            ctx = @dispatch_context begin
+                A = map(data) do i
+                    @op slowinc(i)
+                end
+
+                B = map(A) do a
+                    @op slowadd(a, 10)
+                end
+
+                C = map(A) do a
+                    @op slowadd(a, 100)
+                end
+
+                result = @op ((@op slowsum(A...)) + (@op slowsum(B...)) + (@op slowsum(C...)))
+            end
+
+            executor = AsyncExecutor()
+            (run_result,) = run!(executor, ctx, [result])
+
+            @test !iserror(run_result)
+            run_future = unwrap(run_result)
+            @test isready(run_future)
+            @test fetch(run_future) == 357
+        end
+
+        @testset "Dask Cluster" begin
+            pnums = addprocs(3)
+            @everywhere using Dispatcher
+
+            @everywhere function load(address)
+                sleep(rand() / 2)
+
+                return 1
+            end
+
+            @everywhere function load_from_sql(address)
+                sleep(rand() / 2)
+
+                return 1
+            end
+
+            @everywhere function process(data, reference)
+                sleep(rand() / 2)
+
+                return 1
+            end
+
+            @everywhere function roll(a, b, c)
+                sleep(rand() / 5)
+
+                return 1
+            end
+
+            @everywhere function compare(a, b)
+                sleep(rand() / 10)
+
+                return 1
+            end
+
+            @everywhere function reduction(seq)
+                sleep(rand() / 1)
+
+                return 1
+            end
+
+            try
+                ctx = @dispatch_context begin
+                    filenames = ["mydata-$d.dat" for d in 1:100]
+                    data = [(@op load(filename)) for filename in filenames]
+
+                    reference = @op load_from_sql("sql://mytable")
+                    processed = [(@op process(d, reference)) for d in data]
+
+                    rolled = map(1:(length(processed) - 2)) do i
+                        a = processed[i]
+                        b = processed[i + 1]
+                        c = processed[i + 2]
+                        roll_result = @op roll(a, b, c)
+                        return roll_result
+                    end
+
+                    compared = map(1:200) do i
+                        a = rand(rolled)
+                        b = rand(rolled)
+                        compare_result = @op compare(a, b)
+                        return compare_result
+                    end
+
+                    best = @op reduction(@node CollectNode(compared))
+                end
+
+                executor = ParallelExecutor()
+                (run_best,) = run!(executor, ctx, [best])
+            finally
+                rmprocs(pnums)
+            end
+        end
+    end
 end
