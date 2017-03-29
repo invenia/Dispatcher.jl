@@ -170,7 +170,7 @@ get_label(op::Op) = op.label
 
 Manually set the label for the op.
 """
-set_label!(op::Op, label::String) = op.label = label
+set_label!(op::Op, label::AbstractString) = op.label = label
 
 """
     dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}
