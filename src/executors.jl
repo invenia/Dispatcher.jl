@@ -382,7 +382,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
 
     len = length(ctx.graph.nodes)
     info(logger, "Executing $len graph nodes.")
-    res = asyncmap(f, 1:len)
+    res = asyncmap(f, 1:len; ntasks=div(len * 3, 2))
     info(logger, "All $len nodes executed.")
 
     return res
