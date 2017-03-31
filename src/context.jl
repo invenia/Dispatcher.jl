@@ -29,8 +29,8 @@ Base.setindex!(ctx::DispatchContext, value, key) = ctx.meta[key] = value
 """
     add!(ctx::DispatchContext, node::DispatchNode) -> DispatchNode
 
-Add a `DispatchNode` to the `DispatchContext`'s graph and record its dependencies in the
-graph.
+Add a [`DispatchNode`](@ref) to the `DispatchContext`'s graph and record its dependencies in
+the graph.
 
 Return the `DispatchNode` which was added.
 """

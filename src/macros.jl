@@ -2,7 +2,7 @@
     @node Node(...)
 
 The `@node` macro makes it more convenient to add nodes to the computation
-graph while in a `@dispatch_context` block.
+graph while in a [`@dispatch_context`](@ref) block.
 
 ```julia
 a = @node DataNode([1, 3, 5])
@@ -20,8 +20,8 @@ end
 """
     @op func(...)
 
-The `@op` macro makes it more convenient to add `Op` nodes to the computation
-graph while in a `@dispatch_context` block. It translates a function call into
+The `@op` macro makes it more convenient to add [`Op`](@ref) nodes to the computation
+graph while in a [`@dispatch_context`](@ref) block. It translates a function call into
 an `Op` call, effectively deferring the computation.
 
 ```julia
@@ -41,7 +41,7 @@ end
     @include component_function(...)
 
 The `@include` macro makes it more convenient to splice component subgraphs into the
-computation graph while in a `@dispatch_context` block.
+computation graph while in a [`@dispatch_context`](@ref) block.
 
 ```julia
 a = @include sort(1:10; rev=true)
@@ -52,7 +52,7 @@ a = sort(ctx, 1:10; rev=true)
 ```
 where `ctx` is a variable created by the surrounding `@dispatch_context`.
 
-Usually, these component functions are created using a `@component` annotation.
+Usually, these component functions are created using a [`@component`](@ref) annotation.
 """
 macro include(ex)
     annotate(ex, :dispatchinclude)
@@ -65,8 +65,9 @@ end
 """
     @component function ... end
 
-Translate a function definition so that its first argument is a DispatchContext and cause
-all `@op` and `@node` macros within the function to use said DispatchContext.
+Translate a function definition so that its first argument is a [`DispatchContext`](@ref)
+and cause all [`@op`](@ref) and [`@node`](@ref) macros within the function to use said
+`DispatchContext`.
 """
 macro component(func::Expr)
     if func.head != :function
@@ -87,11 +88,11 @@ end
 """
     @dispatch_context begin ... end
 
-Anonymously create and return a DispatchContext. Accepts a block argument and
-causes all `@op` and `@node` macros within that block to use said
-DispatchContext.
+Anonymously create and return a [`DispatchContext`](@ref).
+Accepts a block argument and causes all [`@op`](@ref) and [`@node`](@ref) macros within
+that block to use said `DispatchContext`.
 
-See examples in the manual.
+See examples in the [Manual](@ref).
 """
 macro dispatch_context(ex::Expr)
     ctx_sym = gensym("ctx")

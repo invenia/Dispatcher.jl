@@ -111,7 +111,8 @@ end
 """
     graph1::DispatchGraph == graph2::DispatchGraph
 
-Determine whether two graphs have the same nodes and edges. This is an expensive operation.
+Determine whether two graphs have the same nodes and edges.
+This is an expensive operation.
 """
 function Base.:(==)(graph1::DispatchGraph, graph2::DispatchGraph)
     if length(graph1) != length(graph2)
@@ -141,10 +142,9 @@ Return a new `DispatchGraph` containing everything "between" `roots` and `endpoi
 (arrays of `DispatchNode`s), plus everything else necessary to generate `endpoints`.
 
 More precisely, only `endpoints` and the ancestors of `endpoints`, without any
-nodes which are ancestors of `endpoints` only through `roots`. If `endpoints`
-is empty, return a new `DispatchGraph` containing only `roots`, and nodes
-which are decendents from nodes which are not descendants of
-`roots`.
+nodes which are ancestors of `endpoints` only through `roots`.
+If `endpoints` is empty, return a new `DispatchGraph` containing only `roots`, and nodes
+which are decendents from nodes which are not descendants of `roots`.
 """
 function subgraph{T<:DispatchNode, S<:DispatchNode}(
     graph::DispatchGraph,

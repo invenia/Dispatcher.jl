@@ -5,7 +5,7 @@ that occur on the dependency of a given nodes.
 This is important for passing failure conditions to dependent nodes
 after a failed number of retries.
 
-NOTE: our `trace` field is a Union of `Vector{Any}` and `StackTrace`
+**NOTE**: our `trace` field is a Union of `Vector{Any}` and `StackTrace`
 because we could be storing the traceback from a
 `CompositeException` (inside a `RemoteException`) which is of type `Vector{Any}`
 """
@@ -31,7 +31,7 @@ end
 """
 A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
-the `dependencies` function.
+the [`dependencies`](@ref) function.
 """
 abstract DispatchNode <: Base.AbstractRemoteRef
 
@@ -41,9 +41,26 @@ typealias DispatchResult Result{DispatchNode, DependencyError}
     has_label(node::DispatchNode) -> Bool
 
 Returns true or false as to whether the
-node has a label (ie: a `get_label(node)` method)
+node has a label (ie: a [`get_label(::DispatchNode)`](@ref) method)
 """
 has_label(node::DispatchNode) = false
+
+"""
+    get_label(node::DispatchNode) -> String
+
+Returns a node's label.
+By default, `DispatchNode`s do not support labels, so this method will error.
+"""
+get_label{T<:DispatchNode}(node::T) = error("$T does not implement labels")
+
+"""
+    set_label!(node::DispatchNode, label)
+
+Sets a node's label.
+By default, `DispatchNode`s do not support labels, so this method will error.
+Actual method implementations should return their second argument.
+"""
+set_label!{T<:DispatchNode}(node::T, label) = error("$T does not implement labels")
 
 """
     isready(node::DispatchNode) -> Bool
@@ -61,6 +78,14 @@ Block the current task until a node has a result available.
 Base.wait(node::DispatchNode) = nothing
 
 """
+    fetch(node::DispatchNode) -> Any
+
+Fetch a node's result if available, blocking until it is available.
+All subtypes of `DispatchNode` should implement this, so the default method throws an error.
+"""
+Base.fetch{T<:DispatchNode}(node::T) = error("$T should implement $fetch, but doesn't!")
+
+"""
     dependencies(node::DispatchNode) -> Tuple{Vararg{DispatchNode}}
 
 Return all dependencies which must be ready before executing this node.
@@ -76,7 +101,7 @@ Base.:(==)(a::DispatchNode, b::DispatchNode) = a === b
 """
     prepare!(node::DispatchNode)
 
-Execute some action on a node before dispatching nodes via an `Executor`.
+Execute some action on a node before dispatching nodes via an [`Executor`](@ref).
 The default method performs no action.
 """
 prepare!(node::DispatchNode) = nothing
@@ -104,7 +129,8 @@ Immediately return the data contained in a `DataNode`.
 Base.fetch(node::DataNode) = node.data
 
 """
-An `Op` is a `DispatchNode` which wraps a function which is executed when the `Op` is run.
+An `Op` is a [`DispatchNode`](@ref) which wraps a function which is executed when the `Op`
+is run.
 The result of that function call is stored in the `result` `DeferredFuture`.
 Any `DispatchNode`s which appear in the args or kwargs values will be noted as
 dependencies.
@@ -118,6 +144,14 @@ This is the most common `DispatchNode`.
     kwargs
 end
 
+"""
+    Op(func::Function, args...; kwargs...) -> Op
+
+Construct an `Op` which represents the delayed computation of `func(args...; kwargs)`.
+Any [`DispatchNode`](@ref)s which appear in the args or kwargs values will be noted as
+dependencies.
+The default label of an `Op` is the name of `func`.
+"""
 function Op(func::Function, args...; kwargs...)
     Op(
         DeferredFuture(),
@@ -134,7 +168,7 @@ end
 Returns a string representation of the `Op`
 with its label and the args/kwargs types.
 
-NOTE: if an arg/kwarg is a `DispatchNode` with a label
+**NOTE**: if an arg/kwarg is a [`DispatchNode`](@ref) with a label
 it will be printed with that arg.
 """
 function Base.summary(op::Op)
@@ -160,7 +194,7 @@ has_label(op::Op) = true
 """
     get_label(op::Op) -> String
 
-Returns the op.label.
+Returns the `op.label`.
 """
 get_label(op::Op) = op.label
 
@@ -176,7 +210,7 @@ set_label!(op::Op, label::AbstractString) = op.label = label
     dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}
 
 Return all dependencies which must be ready before executing this `Op`.
-This will be all `DispatchNode`s in the `Op`'s function `args` and `kwargs`.
+This will be all [`DispatchNode`](@ref)s in the `Op`'s function `args` and `kwargs`.
 """
 function dependencies(op::Op)
     filter(x->isa(x, DispatchNode), chain(
@@ -202,8 +236,8 @@ Base.wait(op::Op) = wait(op.result)
 """
     fetch(op::Op) -> Any
 
-Return the result of the `Op`. Block until it is available. Throw `DependencyError` in the
-event that the result is a `DependencyError`.
+Return the result of the `Op`. Block until it is available. Throw [`DependencyError`](@ref)
+in the event that the result is a `DependencyError`.
 """
 function Base.fetch(op::Op)
     ret = fetch(op.result)
@@ -259,7 +293,7 @@ function run!(op::Op)
 end
 
 """
-An `IndexNode` refers to an element of the return value of a `DispatchNode`.
+An `IndexNode` refers to an element of the return value of a [`DispatchNode`](@ref).
 It is meant to handle multiple return values from a `DispatchNode`.
 
 Example:
@@ -272,7 +306,7 @@ run(exec, ctx)
 ```
 
 In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
-`Op` at index 1 and index 2 respectively.
+[`Op`](@ref) at index `1` and index `2` respectively.
 """
 @auto_hash_equals type IndexNode{T<:DispatchNode} <: DispatchNode
     node::T
@@ -280,12 +314,17 @@ In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
     result::DeferredFuture
 end
 
+"""
+    IndexNode(node::DispatchNode, index) -> IndexNode
+
+Create a new `IndexNode` referring to the result of `node` at `index`.
+"""
 IndexNode(node::DispatchNode, index) = IndexNode(node, index, DeferredFuture())
 
 """
     summary(node::IndexNode)
 
-Returns a string representation of the IndexNode with a summary of the wrapped
+Returns a string representation of the `IndexNode` with a summary of the wrapped
 node and the node index.
 """
 Base.summary(node::IndexNode) = "IndexNode<$(value_summary(node.node)), $(node.index)>"
@@ -405,7 +444,7 @@ Block the current task until a `CleanupNode` has completed its cleanup.
 Base.wait(node::CleanupNode) = wait(node.is_finished)
 
 """
-    prepare!(node::IndexNode)
+    prepare!(node::CleanupNode)
 
 Replace an `CleanupNode`'s completion status field with a fresh, empty one.
 """
@@ -459,7 +498,7 @@ end
 """
     CollectNode(nodes) -> CollectNode{DispatchNode}
 
-Create a CollectNode from any iterable of nodes.
+Create a `CollectNode` from any iterable of nodes.
 """
 CollectNode(nodes) = CollectNode(collect(DispatchNode, nodes))
 
@@ -507,7 +546,7 @@ end
 
 Collect all of a `CollectNode`'s dependencies' results into a Vector and store that in this
 node's result field.
-Returns nothing.
+Returns `nothing`.
 """
 function run!(node::CollectNode)
     parent_node_results = asyncmap(dependencies(node)) do parent_node
@@ -537,14 +576,14 @@ set_label!(node::CollectNode, label::AbstractString) = node.label = label
 """
     has_label(::CollectNode) -> Bool
 
-Always return `true` as an `Op` will always have a label.
+Always return `true` as a `CollectNode` will always have a label.
 """
 has_label(::CollectNode) = true
 
 """
     summary(node::CollectNode)
 
-Returns a string representation of the CollectNode with its label.
+Returns a string representation of the `CollectNode` with its label.
 """
 Base.summary(node::CollectNode) = value_summary(node)
 
@@ -564,9 +603,9 @@ Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
 
 """
-`NodeSet` stores a correspondence between intances of `DispatchNode`s and
-the `Int` indices used by LightGraphs to denote vertices. It is only used by
-`DispatchContext`.
+`NodeSet` stores a correspondence between intances of [`DispatchNode`](@ref)s and
+the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
+[`DispatchContext`](@ref).
 """
 type NodeSet
     id_dict::Dict{Int, DispatchNode}
@@ -612,7 +651,7 @@ end
     findin(ns::NodeSet, nodes) -> Vector{Int}
 
 Return the node numbers of all nodes in the node set whcih are present in the `nodes`
-iterable of `DispatchNode`s.
+iterable of [`DispatchNode`](@ref)s.
 """
 function Base.findin(ns::NodeSet, nodes)
     numbers = Int[]
@@ -636,14 +675,14 @@ nodes(ns::NodeSet) = keys(ns.node_dict)
 """
     getindex(ns::NodeSet, node_id::Int) -> DispatchNode
 
-Return the `DispatchNode` from a node set corresponding to a given integer id.
+Return the [`DispatchNode`](@ref) from a node set corresponding to a given integer id.
 """
 Base.getindex(ns::NodeSet, node_id::Int) = ns.id_dict[node_id]
 
 """
     getindex(ns::NodeSet, node::DispatchNode) -> Int
 
-Return the integer id from a node set corresponding to a given `DispatchNode`.
+Return the integer id from a node set corresponding to a given [`DispatchNode`](@ref).
 """
 Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
 
@@ -653,8 +692,8 @@ Base.getindex(ns::NodeSet, node::DispatchNode) = ns.node_dict[node]
 """
     setindex!(ns::NodeSet, node::DispatchNode, node_id::Int) -> NodeSet
 
-Replace the node corresponding to a given integer id with a given `DispatchNode`. Return
-the first argument.
+Replace the node corresponding to a given integer id with a given [`DispatchNode`](@ref).
+Return the first argument.
 """
 function Base.setindex!(ns::NodeSet, node::DispatchNode, node_id::Int)
     if node_id in keys(ns.id_dict)

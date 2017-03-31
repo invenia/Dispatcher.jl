@@ -1,7 +1,7 @@
 import Iterators: chain
 
 """
-An `Executor` handles execution of `DispatchContext`s.
+An `Executor` handles execution of [`DispatchContext`](@ref)s.
 
 A type `T <: Executor` must implement `dispatch!(::T, ::DispatchNode)`
 and may optionally implement `dispatch!(::T, ::DispatchContext; throw_error=true)`.
@@ -17,7 +17,7 @@ run!(exec, context)
 ```
 
 NOTE: Currently, it is expected that `dispatch!(::T, ::DispatchNode)` returns
-something to wait on (ie: `Task`, `Future`, `Channel`, `DispatchNode`, etc)
+something to wait on (ie: `Task`, `Future`, `Channel`, [`DispatchNode`](@ref), etc)
 """
 abstract Executor
 
@@ -60,8 +60,8 @@ nodes with fixed values (and ignoring nodes for which all paths descend to `inpu
 
 * `input_map::Associative=Dict{DispatchNode, Any}()`: dict keys are "root" nodes of the
   subgraph which will be replaced with the dict values
-* `throw_error::Bool`: whether to throw any `DependencyError`s immediately (see `dispatch!`
-  documentation for more information)
+* `throw_error::Bool`: whether to throw any [`DependencyError`](@ref)s immediately (see
+  [`dispatch!(::Executor, ::DispatchContext)`](@ref) for more information)
 
 # Returns
 
@@ -71,7 +71,8 @@ nodes with fixed values (and ignoring nodes for which all paths descend to `inpu
 # Throws
 
 * `ExecutorError`: if the context's graph contains a cycle
-* `CompositeException`/`DependencyError`: see documentation for `dispatch!`
+* `CompositeException`/[`DependencyError`](@ref): see documentation for
+  [`dispatch!(::Executor, ::DispatchContext)`](@ref)
 """
 function run!{T<:DispatchNode, S<:DispatchNode}(
     exec::Executor,
@@ -144,11 +145,12 @@ end
 """
     run!(exec::Executor, ctx::DispatchContext; kwargs...)
 
-The `run!` function prepares a `DispatchContext` for dispatch and then
-dispatches `run!` calls for all nodes in its graph.
+The `run!` function prepares a [`DispatchContext`](@ref) for dispatch and then
+dispatches [`run!(::DispatchNode)`](@ref) calls for all nodes in its graph.
 
 Users will almost never want to add methods to this function for different
-`Executor` subtypes; overriding `dispatch!` is the preferred pattern.
+[`Executor`](@ref) subtypes; overriding [`dispatch!(::Executor, ::DispatchContext)`](@ref)
+is the preferred pattern.
 
 Return an array containing a `Result{DispatchNode, DependencyError}` for each leaf node.
 """
@@ -159,8 +161,8 @@ end
 """
     prepare!(exec::Executor, ctx::DispatchContext)
 
-This function `prepare!`s a context for execution.
-Call `prepare!` on each node.
+This function prepares a context for execution.
+Call [`prepare!(::DispatchNode)`](@ref) on each node.
 """
 function prepare!(exec::Executor, ctx::DispatchContext)
     for node in nodes(ctx.graph)
@@ -173,7 +175,7 @@ end
 """
     dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true) -> Vector
 
-The default `dispatch!` method uses asyncmap over all nodes in the context to call
+The default `dispatch!` method uses `asyncmap` over all nodes in the context to call
 `dispatch!(exec, node)`. These `dispatch!` calls for each node are wrapped in various retry
 and error handling methods.
 
@@ -181,7 +183,7 @@ and error handling methods.
 
 1. All nodes are wrapped in a try catch which waits on the value returned from the
    `dispatch!(exec, node)` call.
-   Any errors are caught and used to create `DependencyError`s which are thrown.
+   Any errors are caught and used to create [`DependencyError`](@ref)s which are thrown.
    If no errors are produced then the node is returned.
 
    **NOTE**: All errors thrown by trying to run `dispatch!(exec, node)` are wrapped in a
@@ -190,10 +192,11 @@ and error handling methods.
 2. The aformentioned wrapper function is used in a retry wrapper to rerun failed nodes
    (up to some limit).
    The wrapped function will only be retried iff the error produced by
-   `dispatch!(::executor, ::DispatchNode`) passes one of the retry functions specific to
-   that `Executor`.
-   By default the `AsyncExecutor` has no `retry_on` functions and the `ParallelExecutor`
-   only has `retry_on` functions related to the loss of a worker process during execution.
+   `dispatch!(::Executor, ::DispatchNode`) passes one of the retry functions specific to
+   that [`Executor`](@ref).
+   By default the [`AsyncExecutor`](@ref) has no [`retry_on`](@ref) functions and the
+   [`ParallelExecutor`](@ref) only has `retry_on` functions related to the loss of a worker
+   process during execution.
 
 3. A node may enter a failed state if it exits the retry wrapper with an exception.
    This may occur if an exception is thrown while executing a node and it does not pass any
@@ -218,7 +221,7 @@ and error handling methods.
 
 ## Returns
 
-* `Vector{Union{DispatchNode, DependencyError}}`: a list of `DispatchNode`s or
+* `Vector{Union{DispatchNode, DependencyError}}`: a list of [`DispatchNode`](@ref)s or
   `DependencyError`s for failed nodes
 
 ## Throws
@@ -389,11 +392,11 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
 end
 
 """
-`AsyncExecutor` is an `Executor` which schedules a local Julia `Task` for each
-`DispatchNode` and waits for them to complete.
-`AsyncExecutor`'s `dispatch!` method will complete as long as each
-`DispatchNode`'s `run!` method completes and there are no cycles in the
-computation graph.
+`AsyncExecutor` is an [`Executor`](@ref) which schedules a local Julia `Task` for each
+[`DispatchNode`](@ref) and waits for them to complete.
+`AsyncExecutor`'s [`dispatch!(::AsyncExecutor, ::DispatchNode)`](@ref) method will complete
+as long as each `DispatchNode`'s [`run!(::DispatchNode)`](@ref) method completes and there
+are no cycles in the computation graph.
 """
 type AsyncExecutor <: Executor
     retries::Int
@@ -407,41 +410,41 @@ end
 `retry_on` is a vector of predicates which accept an `Exception` and return `true` if a
 node can and should be retried (and `false` otherwise).
 
-Return a new AsyncExecutor.
+Return a new `AsyncExecutor`.
 """
 function AsyncExecutor(retries=5, retry_on::Vector{Function}=Function[])
     return AsyncExecutor(retries, retry_on)
 end
 
 """
-    dispatch!(exec::ParallelExecutor, node::DispatchNode) -> Task
+    dispatch!(exec::AsyncExecutor, node::DispatchNode) -> Task
 
 `dispatch!` takes the `AsyncExecutor` and a `DispatchNode` to run.
-The `run!` method on the node is called within an `@async` block and the resulting `Task` is
-returned.
+The [`run!(::DispatchNode)`](@ref) method on the node is called within an `@async` block and
+the resulting `Task` is returned.
 This is the defining method of `AsyncExecutor`.
 """
 dispatch!(exec::AsyncExecutor, node::DispatchNode) = @async run!(node)
 
 """
-`ParallelExecutor` is an `Executor` which creates a Julia `Task` for each
-`DispatchNode`, spawns each of those tasks on the processes available to Julia,
+`ParallelExecutor` is an [`Executor`](@ref) which creates a Julia `Task` for each
+[`DispatchNode`](@ref), spawns each of those tasks on the processes available to Julia,
 and waits for them to complete.
-`ParallelExecutor`'s `dispatch!` method will complete as long as each
-`DispatchNode`'s `run!` method completes and there are no cycles in the
-computation graph.
+`ParallelExecutor`'s [`dispatch!(::ParallelExecutor, ::DispatchContext)`](@ref) method will
+complete as long as each `DispatchNode`'s [`run!(::DispatchNode)`](@ref) method completes
+and there are no cycles in the computation graph.
+
+    ParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor
+
+`retries` is the number of times the executor is to retry a failed node.
+`retry_on` is a vector of predicates which accept an `Exception` and return `true` if a
+node can and should be retried (and `false` otherwise).
+Returns a new `ParallelExecutor`.
 """
 type ParallelExecutor <: Executor
     retries::Int
     retry_on::Vector{Function}
 
-    """
-        ParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor
-
-    `retries` is the number of times the executor is to retry a failed node.
-    `retry_on` is a vector of predicates which accept an `Exception` and return `true` if a
-    node can and should be retried (and `false` otherwise).
-    """
     function ParallelExecutor(retries=5, retry_on::Vector{Function}=Function[])
         # The `ProcessExitedException` is the most common error and is the expected behaviour
         # in julia, but depending on when worker processes die we can see other exceptions related
@@ -480,9 +483,9 @@ end
 """
     dispatch!(exec::ParallelExecutor, node::DispatchNode) -> Future
 
-`dispatch!` takes the `ParallelExecutor` and a `DispatchNode` to run.
-The `run!` method on the node is called within an `@spawn` block and the resulting
-`Future` is returned.
+`dispatch!` takes the `ParallelExecutor` and a [`DispatchNode`](@ref) to run.
+The [`run!(::DispatchNode)`](@ref) method on the node is called within an `@spawn` block and
+the resulting `Future` is returned.
 This is the defining method of `ParallelExecutor`.
 """
 dispatch!(exec::ParallelExecutor, node::DispatchNode) = @spawn run!(node)
@@ -504,9 +507,10 @@ retry_on(exec::Union{AsyncExecutor, ParallelExecutor}) = exec.retry_on
 """
     allow_retry(conditions::Vector{Function}) -> Function
 
-`allow_retry` takes an array of functions that take a `DependencyError` and return a `Bool`.
-The returned function will return true if any of the conditions hold, otherwise it will
-return false.
+`allow_retry` takes an array of functions that take a [`DependencyError`](@ref) and return a
+`Bool`.
+The returned function will return `true` if any of the conditions hold, otherwise it will
+return `false`.
 """
 function allow_retry(conditions::Vector{Function})
     function inner_allow_retry(de::DependencyError)
