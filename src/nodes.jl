@@ -33,7 +33,7 @@ A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
 the [`dependencies`](@ref) function.
 """
-abstract DispatchNode <: Base.AbstractRemoteRef
+abstract DispatchNode <: DeferredFutures.AbstractRemoteRef
 
 typealias DispatchResult Result{DispatchNode, DependencyError}
 
