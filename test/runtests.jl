@@ -7,14 +7,14 @@ import LightGraphs
 
 const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
-basic_config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
+Memento.config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
 const logger = get_logger(current_module())
 
 function test_addproc(x::Int; level=LOG_LEVEL)
     ret = addproc(x)
     @everywhere using Dispatcher
     @everywhere using Memento
-    @everywhere basic_config(level; fmt="[{level} | {name}]: {msg}")
+    @everywhere Memento.config(level; fmt="[{level} | {name}]: {msg}")
 end
 
 @testset "Graph" begin

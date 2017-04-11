@@ -11,7 +11,7 @@ using Memento
 
 const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
-basic_config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
+Memento.config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
 const logger = get_logger(current_module())
 
 @everywhere function load(address)
