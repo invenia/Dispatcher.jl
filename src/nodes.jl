@@ -35,7 +35,7 @@ the [`dependencies`](@ref) function.
 """
 abstract DispatchNode <: DeferredFutures.AbstractRemoteRef
 
-typealias DispatchResult Result{DispatchNode, DependencyError}
+const DispatchResult = Result{DispatchNode, DependencyError}
 
 """
     has_label(node::DispatchNode) -> Bool

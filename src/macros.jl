@@ -129,7 +129,7 @@ function process_nodes!(ex::Expr, ctx_sym::Symbol)
     elseif ex.head === :dispatchinclude
         process_include!(ex, ctx_sym)
     else
-        map!(x->process_nodes!(x, ctx_sym), ex.args)
+        map!(x->process_nodes!(x, ctx_sym), ex.args, ex.args)
     end
 
     return ex
@@ -147,7 +147,7 @@ function process_op!(ex::Expr, ctx_sym::Symbol)
         Expr(
             :call,
             Dispatcher.Op,
-            map!(x->process_nodes!(x, ctx_sym), fn_call_expr.args)...
+            map!(x->process_nodes!(x, ctx_sym), fn_call_expr.args, fn_call_expr.args)...
         )
     ]
 end
@@ -167,7 +167,7 @@ function process_include!(ex::Expr, ctx_sym::Symbol)
     insert!(fn_call_expr.args, 2, ctx_sym)
 
     ex.head = fn_call_expr.head
-    ex.args = map!(x->process_nodes!(x, ctx_sym), fn_call_expr.args)
+    ex.args = map!(x->process_nodes!(x, ctx_sym), fn_call_expr.args, fn_call_expr.args)
 
     ex
 end
