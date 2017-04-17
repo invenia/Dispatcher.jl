@@ -323,7 +323,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     This is the default behaviour.
     """
     function on_error_inner!(err::Exception)
-        warn(logger, "Unhandled Error: $(summary(err))")
+        warn(logger, "Unhandled Error: $err")
         throw(err)
     end
 
