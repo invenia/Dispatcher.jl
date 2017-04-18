@@ -1,5 +1,13 @@
 import Iterators: chain
 
+if VERSION >= v"0.6.0-dev.2830"
+    import Base.Distributed: wrap_on_error, wrap_retry
+elseif VERSION >= v"0.6.0-dev.2603"
+    import Base.Parallel: wrap_on_error, wrap_retry
+else
+    import Base: wrap_on_error, wrap_retry
+end
+
 """
 An `Executor` handles execution of [`DispatchContext`](@ref)s.
 
@@ -373,12 +381,16 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     for more details.
     ```
     =#
-    f = Base.wrap_on_error(
-        Base.wrap_retry(
+    retry_args = @static if VERSION < v"0.6.0-dev.2042"
+        (allow_retry(retry_on(exec)), retries(exec), Base.DEFAULT_RETRY_MAX_DELAY)
+    else
+        (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
+    end
+
+    f = wrap_on_error(
+        wrap_retry(
             run_inner!,
-            allow_retry(retry_on(exec)),
-            retries(exec),
-            Base.DEFAULT_RETRY_MAX_DELAY
+            retry_args...,
         ),
         on_error_inner!
     )
@@ -519,5 +531,9 @@ function allow_retry(conditions::Vector{Function})
         return ret
     end
 
-    return inner_allow_retry
+    @static if VERSION < v"0.6.0-dev.2042"
+        return inner_allow_retry
+    else
+        return (state, e) -> (state, inner_allow_retry(e))
+    end
 end
