@@ -29,7 +29,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Frequently Asked Questions",
     "category": "section",
-    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
+    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.Isn't this just DaskPretty much. The plan is to implement another Executor and integrate with the dask.distributed scheduler service to piggyback off of their great work.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
 },
 
 {
@@ -65,14 +65,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/manual.html#FAQ-1",
-    "page": "Manual",
-    "title": "FAQ",
-    "category": "section",
-    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
-},
-
-{
     "location": "pages/manual.html#Design-1",
     "page": "Manual",
     "title": "Design",
@@ -85,7 +77,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Overview",
     "category": "section",
-    "text": "Using Dispatcher, a DispatchContext maintains a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor executes a whole DispatchContext. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn).Here is an example defining and executing a graph:The components of this example will be discussed below."
+    "text": "Using Dispatcher, a DispatchContext maintains a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor executes a whole DispatchContext. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn).Here is an example defining and executing a graph:ctx = @dispatch_context begin\n    filenames = [\"mydata-$d.dat\" for d in 1:100]\n    data = [(@op load(filename)) for filename in filenames]\n\n    reference = @op load_from_sql(\"sql://mytable\")\n    processed = [(@op process(d, reference)) for d in data]\n\n    rolled = map(1:(length(processed) - 2)) do i\n        a = processed[i]\n        b = processed[i + 1]\n        c = processed[i + 2]\n        roll_result = @op roll(a, b, c)\n        return roll_result\n    end\n\n    compared = map(1:200) do i\n        a = rand(rolled)\n        b = rand(rolled)\n        compare_result = @op compare(a, b)\n        return compare_result\n    end\n\n    best = @op reduction(@node CollectNode(compared))\nend\n\nexecutor = ParallelExecutor()\n(run_best,) = run!(executor, ctx, [best])The components of this example will be discussed below. This example is based on a Dask example."
 },
 
 {
@@ -93,7 +85,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Dispatch Nodes",
     "category": "section",
-    "text": "A DispatchNode generally represents a unit of computation that can be run. DispatchNodes are constructed when defining the graph and are run as part of graph execution. The @node macro takes a DispatchNode instance and adds it to the graph in the current context. The following code, where Feature <: DispatchNode:is equivalent to:where ctx is the current dispatch context."
+    "text": "A DispatchNode generally represents a unit of computation that can be run. DispatchNodes are constructed when defining the graph and are run as part of graph execution. The @node macro takes a DispatchNode instance and adds it to the graph in the current context. The following code, where CollectNode <: DispatchNode:collection = @node CollectNode(compared)is equivalent to:collection = add!(ctx, CollectNode(compared))where ctx is the current dispatch context."
 },
 
 {
@@ -101,7 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Op",
     "category": "section",
-    "text": "An Op is a DispatchNode which represents some function call to be run as part of graph execution. This is the most common type of DispatchNode. The @op applies an extra transformation on top of the @node macro and deconstructs a function call to add to the graph. The following code:is equivalent to:where ctx is the current dispatch context. Note that code in the argument list gets evaluated immediately; only the function call is delayed."
+    "text": "An Op is a DispatchNode which represents some function call to be run as part of graph execution. This is the most common type of DispatchNode. The @op applies an extra transformation on top of the @node macro and deconstructs a function call to add to the graph. The following code:roll_result = @op roll(a, b, c)is equivalent to:roll_result = add!(ctx, Op(roll, a, b, c))where ctx is the current dispatch context. Note that code in the argument list gets evaluated immediately; only the function call is delayed."
 },
 
 {
@@ -117,7 +109,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Executors",
     "category": "section",
-    "text": ""
+    "text": "An Executor runs a DispatchContext. This package currently provides two Executors: AsyncExecutor and ParallelExecutor. They work the same way, except AsyncExecutor runs nodes using @async and ParallelExecutor uses @spawn.This call:(run_best,) = run!(executor, ctx, [best])takes an Executor, a DispatchContext, and a Vector{DispatchNode}, runs those nodes and all of their ancestors, and returns a collection of DispatchResults (in this case containing only the DispatchResult for best). A DispatchResult is a ResultType containing either a DispatchNode or a DependencyError (an error that occurred when attempting to satisfy the requirements for running that node).It is also possible to feed in inputs in place of nodes in the graph; see run! for more."
+},
+
+{
+    "location": "pages/manual.html#Further-Reading-1",
+    "page": "Manual",
+    "title": "Further Reading",
+    "category": "section",
+    "text": "Check out the API for more information."
 },
 
 {
