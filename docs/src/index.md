@@ -27,6 +27,11 @@ Dispatcher is built to deal with discrete, heterogeneous data using any Julia fu
 Arbiter requires manually adding tasks and their dependencies and handling data passing.
 Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.
 
+> Isn't this just Dask
+
+Pretty much.
+The plan is to implement another `Executor` and [integrate](https://github.com/dask/distributed/issues/586) with the [`dask.distributed`](https://distributed.readthedocs.io/) scheduler service to piggyback off of their great work.
+
 > How does Dispatcher handle passing data?
 
 Dispatcher uses Julia `RemoteChannel`s to pass data between dispatched `DispatchNode`s.

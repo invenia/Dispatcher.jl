@@ -16,7 +16,7 @@ makedocs(
 
 deploydocs(
     repo = "github.com/invenia/Dispatcher.jl.git",
-    julia = "release",
+    julia = "0.5",
     target = "build",
     deps = nothing,
     make = nothing,
