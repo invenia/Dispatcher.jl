@@ -381,26 +381,19 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     for more details.
     ```
     =#
-    @static if VERSION < v"0.6.0-dev.2042"
-        f = wrap_on_error(
-            wrap_retry(
-                run_inner!,
-                allow_retry(retry_on(exec)),
-                retries(exec),
-                Base.DEFAULT_RETRY_MAX_DELAY
-            ),
-            on_error_inner!
-        )
+    retry_args = @static if VERSION < v"0.6.0-dev.2042"
+        (allow_retry(retry_on(exec)), retries(exec), Base.DEFAULT_RETRY_MAX_DELAY)
     else
-        f = wrap_on_error(
-            wrap_retry(
-                run_inner!,
-                ExponentialBackOff(; n=retries(exec)),
-                allow_retry(retry_on(exec)),
-            ),
-            on_error_inner!
-        )
+        (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
     end
+
+    f = wrap_on_error(
+        wrap_retry(
+            run_inner!,
+            retry_args...,
+        ),
+        on_error_inner!
+    )
 
     len = length(ctx.graph.nodes)
     info(logger, "Executing $len graph nodes.")
