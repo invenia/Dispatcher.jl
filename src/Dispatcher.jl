@@ -2,7 +2,11 @@ module Dispatcher
 
 # ONLY NECESSARY ON 0.5
 if VERSION < v"0.6-"
-    Base.asyncmap(f, c...; ntasks=0) = collect(Base.AsyncGenerator(f, c...; ntasks=ntasks))
+    function asyncmap(f, c...; ntasks=0)
+        collect(Base.AsyncGenerator(f, c...; ntasks=ntasks))
+    end
+else
+    asyncmap = Base.asyncmap
 end
 
 export DispatchContext,
