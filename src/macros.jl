@@ -111,8 +111,6 @@ macro dispatch_context(ex::Expr)
     ))
 end
 
-typealias BaseCaseNodes Union{Number, Symbol, String, MethodError}
-
 function process_nodes!(ex::Expr, ctx_sym::Symbol)
     if ex.head === :dispatchop
         inner_ex_type = ex.args[end].head
@@ -135,7 +133,8 @@ function process_nodes!(ex::Expr, ctx_sym::Symbol)
     return ex
 end
 
-process_nodes!(ex::BaseCaseNodes, ctx_sym::Symbol) = ex
+# fallback for non-Expr types; previously only specific known base cases
+process_nodes!(ex, ctx_sym::Symbol) = ex
 
 function process_op!(ex::Expr, ctx_sym::Symbol)
     fn_call_expr = ex.args[end]
