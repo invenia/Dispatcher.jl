@@ -139,6 +139,16 @@ process_nodes!(ex, ctx_sym::Symbol) = ex
 function process_op!(ex::Expr, ctx_sym::Symbol)
     fn_call_expr = ex.args[end]
 
+    # parameters expressions only appear when kwargs are separated with a semicolon
+    # parameters expressions must be the second arg in a :call Expr because reasons
+    param_idx = findfirst(fn_call_expr.args) do arg_ex
+        isa(arg_ex, Expr) && arg_ex.head === :parameters
+    end
+
+    if param_idx > 0
+        fn_call_expr.args[1:param_idx] = circshift(fn_call_expr.args[1:param_idx], 1)
+    end
+
     ex.head = :call
     ex.args = [
         :(add!),

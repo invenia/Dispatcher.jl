@@ -257,6 +257,48 @@ end
                 @test isempty(ctx_nodes[1].kwargs)
             end
 
+            @testset "Op (kwargs, without semicolon)" begin
+                ex = quote
+                    @dispatch_context begin
+                        @op split("foo bar", limit=1)
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 1
+                @test isa(ctx_nodes[1], Op)
+                @test ctx_nodes[1].func == split
+                @test collect(ctx_nodes[1].args) == ["foo bar"]
+                @test collect(ctx_nodes[1].kwargs) == [(:limit, 1)]
+            end
+
+            @testset "Op (kwargs, with semicolon)" begin
+                ex = quote
+                    @dispatch_context begin
+                        @op split("foo bar"; limit=1)
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 1
+                @test isa(ctx_nodes[1], Op)
+                @test ctx_nodes[1].func == split
+                @test collect(ctx_nodes[1].args) == ["foo bar"]
+                @test collect(ctx_nodes[1].kwargs) == [(:limit, 1)]
+            end
+
             @testset "Generic (Op)" begin
                 ex = quote
                     @dispatch_context begin
