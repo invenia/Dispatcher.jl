@@ -27,6 +27,16 @@ Base.getindex(ctx::DispatchContext, key) = ctx.meta[key]
 Base.setindex!(ctx::DispatchContext, value, key) = ctx.meta[key] = value
 
 """
+    show(io::IO, ctx::DispatchContext)
+
+Print a simplified string representation of the `DispatchContext` with its graph and
+metadata.
+"""
+function Base.show(io::IO, ctx::DispatchContext)
+    print(io, typeof(ctx).name.name, "($(ctx.graph),$(ctx.meta))")
+end
+
+"""
     add!(ctx::DispatchContext, node::DispatchNode) -> DispatchNode
 
 Add a [`DispatchNode`](@ref) to the `DispatchContext`'s graph and record its dependencies in

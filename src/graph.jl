@@ -16,6 +16,15 @@ Create an empty `DispatchGraph`.
 DispatchGraph() = DispatchGraph(DiGraph(), NodeSet())
 
 """
+    show(io::IO, graph::DispatchGraph)
+
+Print a simplified string representation of the `DispatchGraph` with its graph and nodes.
+"""
+function Base.show(io::IO, graph::DispatchGraph)
+    print(io, typeof(graph).name.name, "($(graph.graph),$(graph.nodes))")
+end
+
+"""
     length(graph::DispatchGraph) -> Integer
 
 Return the number of nodes in the graph.

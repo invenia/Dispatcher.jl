@@ -122,6 +122,15 @@ A `DataNode` is a `DispatchNode` which wraps a piece of static data.
 end
 
 """
+    show(io::IO, node::DataNode)
+
+Print a simplified string representation of the `DataNode` with its data.
+"""
+function Base.show(io::IO, node::DataNode)
+    print(io, typeof(node).name.name, "($(node.data))")
+end
+
+"""
     fetch{T}(node::DataNode{T}) -> T
 
 Immediately return the data contained in a `DataNode`.
@@ -159,6 +168,23 @@ function Op(func::Function, args...; kwargs...)
         string(Symbol(func)),
         args,
         kwargs,
+    )
+end
+
+"""
+    show(io::IO, op::Op)
+
+Print a simplified string representation of the `Op` with its DeferredFuture
+RemoteChannel parameters, its function, and label.
+"""
+function Base.show(io::IO, op::Op)
+    print(
+        io,
+        "$(typeof(op).name.name)(",
+        "$(typeof(op.result).name.name)",
+        "($(op.result.outer.where),$(op.result.outer.whence),$(op.result.outer.id)),",
+        "$(op.func),",
+        "\"$(op.label)\")",
     )
 end
 
@@ -320,6 +346,23 @@ end
 Create a new `IndexNode` referring to the result of `node` at `index`.
 """
 IndexNode(node::DispatchNode, index) = IndexNode(node, index, DeferredFuture())
+
+"""
+    show(io::IO, node::IndexNode)
+
+Print a simplified string representation of the `IndexNode` with its node, index, and
+result DeferredFuture RemoteChannel parameters.
+"""
+function Base.show(io::IO, node::IndexNode)
+    print(
+        io,
+        "$(typeof(node).name.name)(",
+        "$(node.node),",
+        "$(node.index),",
+        "$(typeof(node.result).name.name)",
+        "($(node.result.outer.where),$(node.result.outer.whence),$(node.result.outer.id)))",
+    )
+end
 
 """
     summary(node::IndexNode)
@@ -581,6 +624,23 @@ Always return `true` as a `CollectNode` will always have a label.
 has_label(::CollectNode) = true
 
 """
+    show(io::IO, node::CollectNode)
+
+Print a simplified string representation of the `CollectNode` with its nodes Vector,
+result DeferredFuture RemoteChannel parameters, and its label.
+"""
+function Base.show(io::IO, node::CollectNode)
+    print(
+        io,
+        "$(typeof(node).name.name)",
+        "($(node.nodes)),",
+        "$(typeof(node.result).name.name)",
+        "($(node.result.outer.where),$(node.result.outer.whence),$(node.result.outer.id)),",
+        "\"$(node.label)\")"
+    )
+end
+
+"""
     summary(node::CollectNode)
 
 Returns a string representation of the `CollectNode` with its label.
@@ -618,6 +678,17 @@ end
 Create a new empty `NodeSet`.
 """
 NodeSet() = NodeSet(Dict{Int, DispatchNode}(), ObjectIdDict())
+
+"""
+    show(io::IO, ns::NodeSet)
+
+Print a simplified string representation of the `NodeSet` with its nodes ordered by integer
+index.
+"""
+function Base.show(io::IO, ns::NodeSet)
+    print(io, typeof(ns).name.name, "($(values(sort(ns.id_dict))))")
+
+end
 
 """
     length(ns::NodeSet) -> Integer
