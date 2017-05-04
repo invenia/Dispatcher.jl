@@ -920,4 +920,44 @@ end
             end
         end
     end
+
+    @testset "Show" begin
+        @test sprint(show, DispatchContext()) == (
+            "DispatchContext(DispatchGraph(empty directed graph," *
+            "NodeSet(Dispatcher.DispatchNode[])),Dict{Any,Any}())"
+        )
+
+        graph = DispatchGraph()
+
+        @test sprint(show, graph) == (
+            "DispatchGraph(empty directed graph,NodeSet(Dispatcher.DispatchNode[]))"
+        )
+
+        @test sprint(show, Dispatcher.NodeSet()) == "NodeSet(Dispatcher.DispatchNode[])"
+
+        op = Op(DeferredFutures.DeferredFuture(), print, "op", 1, 1)
+        op_str = "Op($(op.result),print,\"op\")"
+        @test sprint(show, op) == op_str
+
+        index_node = IndexNode(op, 1)
+        index_node_str = "IndexNode($op_str,1,$(index_node.result))"
+        @test sprint(show, index_node) == index_node_str
+
+        @test sprint(show, DataNode(op)) == "DataNode($op_str)"
+
+        collect_node = CollectNode([op, index_node])
+        @test sprint(show, collect_node) == (
+            "CollectNode(Dispatcher.DispatchNode[$op_str,$index_node_str]," *
+            "$(collect_node.result),\"2 DispatchNodes\")"
+        )
+
+        push!(graph, op)
+        push!(graph, index_node)
+
+        @test sprint(show, graph) == (
+            "DispatchGraph({2, 0} directed graph,NodeSet(" *
+            "Dispatcher.DispatchNode[$op_str,$index_node_str]))"
+        )
+
+    end
 end

@@ -178,14 +178,7 @@ Print a simplified string representation of the `Op` with its DeferredFuture
 RemoteChannel parameters, its function, and label.
 """
 function Base.show(io::IO, op::Op)
-    print(
-        io,
-        "$(typeof(op).name.name)(",
-        "$(typeof(op.result).name.name)",
-        "($(op.result.outer.where),$(op.result.outer.whence),$(op.result.outer.id)),",
-        "$(op.func),",
-        "\"$(op.label)\")",
-    )
+    print(io, "$(typeof(op).name.name)($(op.result),$(op.func),\"$(op.label)\")")
 end
 
 """
@@ -354,14 +347,7 @@ Print a simplified string representation of the `IndexNode` with its node, index
 result DeferredFuture RemoteChannel parameters.
 """
 function Base.show(io::IO, node::IndexNode)
-    print(
-        io,
-        "$(typeof(node).name.name)(",
-        "$(node.node),",
-        "$(node.index),",
-        "$(typeof(node.result).name.name)",
-        "($(node.result.outer.where),$(node.result.outer.whence),$(node.result.outer.id)))",
-    )
+    print(io, "$(typeof(node).name.name)($(node.node),$(node.index),$(node.result))")
 end
 
 """
@@ -630,14 +616,7 @@ Print a simplified string representation of the `CollectNode` with its nodes Vec
 result DeferredFuture RemoteChannel parameters, and its label.
 """
 function Base.show(io::IO, node::CollectNode)
-    print(
-        io,
-        "$(typeof(node).name.name)",
-        "($(node.nodes)),",
-        "$(typeof(node.result).name.name)",
-        "($(node.result.outer.where),$(node.result.outer.whence),$(node.result.outer.id)),",
-        "\"$(node.label)\")"
-    )
+    print(io, "$(typeof(node).name.name)($(node.nodes),$(node.result),\"$(node.label)\")")
 end
 
 """
