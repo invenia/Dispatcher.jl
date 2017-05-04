@@ -138,7 +138,7 @@ This is the most common `DispatchNode`.
 """
 @auto_hash_equals type Op <: DispatchNode
     result::DeferredFuture
-    func::Function
+    func::Base.Callable
     label::String
     args
     kwargs
@@ -152,7 +152,7 @@ Any [`DispatchNode`](@ref)s which appear in the args or kwargs values will be no
 dependencies.
 The default label of an `Op` is the name of `func`.
 """
-function Op(func::Function, args...; kwargs...)
+function Op(func::Base.Callable, args...; kwargs...)
     Op(
         DeferredFuture(),
         func,
