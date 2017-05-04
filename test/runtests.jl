@@ -920,4 +920,40 @@ end
             end
         end
     end
+
+    @testset "Show" begin
+        ctx = DispatchContext()
+        @test sprint(show, ctx) == (
+            "DispatchContext(DispatchGraph($(ctx.graph.graph)," *
+            "NodeSet(DispatchNode[])),Dict{Any,Any}())"
+        )
+
+        graph = DispatchGraph()
+        @test sprint(show, graph) == "DispatchGraph($(graph.graph),NodeSet(DispatchNode[]))"
+
+        @test sprint(show, Dispatcher.NodeSet()) == "NodeSet(DispatchNode[])"
+
+        op = Op(DeferredFutures.DeferredFuture(), print, "op", 1, 1)
+        op_str = "Op($(op.result),print,\"op\")"
+        @test sprint(show, op) == op_str
+
+        index_node = IndexNode(op, 1)
+        index_node_str = "IndexNode($op_str,1,$(index_node.result))"
+        @test sprint(show, index_node) == index_node_str
+
+        @test sprint(show, DataNode(op)) == "DataNode($op_str)"
+
+        collect_node = CollectNode([op, index_node])
+        @test sprint(show, collect_node) == (
+            "CollectNode(DispatchNode[$op_str,$index_node_str]," *
+            "$(collect_node.result),\"2 DispatchNodes\")"
+        )
+
+        push!(graph, op)
+        push!(graph, index_node)
+
+        @test sprint(show, graph) == (
+            "DispatchGraph($(graph.graph),NodeSet(DispatchNode[$op_str,$index_node_str]))"
+        )
+    end
 end
