@@ -616,8 +616,9 @@ Print a simplified string representation of the `CollectNode` with its nodes Vec
 result DeferredFuture RemoteChannel parameters, and its label.
 """
 function Base.show(io::IO, node::CollectNode)
-    nodes = "DispatchNode[$(join(node.nodes, ","))]"
-    print(io, "$(typeof(node).name.name)($nodes,$(node.result),\"$(node.label)\")")
+    print(io, typeof(node).name.name, "(DispatchNode[")
+    join(io, node.nodes, ",")
+    print(io, "],$(node.result),\"$(node.label)\")")
 end
 
 """
@@ -666,8 +667,9 @@ Print a simplified string representation of the `NodeSet` with its nodes ordered
 index.
 """
 function Base.show(io::IO, ns::NodeSet)
-    nodes = "DispatchNode[$(join(values(sort(ns.id_dict)), ","))]"
-    print(io, typeof(ns).name.name, "($nodes)")
+    print(io, typeof(ns).name.name, "(DispatchNode[")
+    join(io, values(sort(ns.id_dict)), ",")
+    print(io, "])")
 end
 
 """

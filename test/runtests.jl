@@ -922,16 +922,14 @@ end
     end
 
     @testset "Show" begin
-        @test sprint(show, DispatchContext()) == (
-            "DispatchContext(DispatchGraph(empty directed graph," *
+        ctx = DispatchContext()
+        @test sprint(show, ctx) == (
+            "DispatchContext(DispatchGraph($(ctx.graph.graph)," *
             "NodeSet(DispatchNode[])),Dict{Any,Any}())"
         )
 
         graph = DispatchGraph()
-
-        @test sprint(show, graph) == (
-            "DispatchGraph(empty directed graph,NodeSet(DispatchNode[]))"
-        )
+        @test sprint(show, graph) == "DispatchGraph($(graph.graph),NodeSet(DispatchNode[]))"
 
         @test sprint(show, Dispatcher.NodeSet()) == "NodeSet(DispatchNode[])"
 
@@ -955,8 +953,7 @@ end
         push!(graph, index_node)
 
         @test sprint(show, graph) == (
-            "DispatchGraph({2, 0} directed graph,NodeSet(" *
-            "DispatchNode[$op_str,$index_node_str]))"
+            "DispatchGraph($(graph.graph),NodeSet(DispatchNode[$op_str,$index_node_str]))"
         )
     end
 end
