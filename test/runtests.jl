@@ -924,16 +924,16 @@ end
     @testset "Show" begin
         @test sprint(show, DispatchContext()) == (
             "DispatchContext(DispatchGraph(empty directed graph," *
-            "NodeSet(Dispatcher.DispatchNode[])),Dict{Any,Any}())"
+            "NodeSet(DispatchNode[])),Dict{Any,Any}())"
         )
 
         graph = DispatchGraph()
 
         @test sprint(show, graph) == (
-            "DispatchGraph(empty directed graph,NodeSet(Dispatcher.DispatchNode[]))"
+            "DispatchGraph(empty directed graph,NodeSet(DispatchNode[]))"
         )
 
-        @test sprint(show, Dispatcher.NodeSet()) == "NodeSet(Dispatcher.DispatchNode[])"
+        @test sprint(show, Dispatcher.NodeSet()) == "NodeSet(DispatchNode[])"
 
         op = Op(DeferredFutures.DeferredFuture(), print, "op", 1, 1)
         op_str = "Op($(op.result),print,\"op\")"
@@ -947,7 +947,7 @@ end
 
         collect_node = CollectNode([op, index_node])
         @test sprint(show, collect_node) == (
-            "CollectNode(Dispatcher.DispatchNode[$op_str,$index_node_str]," *
+            "CollectNode(DispatchNode[$op_str,$index_node_str]," *
             "$(collect_node.result),\"2 DispatchNodes\")"
         )
 
@@ -956,8 +956,7 @@ end
 
         @test sprint(show, graph) == (
             "DispatchGraph({2, 0} directed graph,NodeSet(" *
-            "Dispatcher.DispatchNode[$op_str,$index_node_str]))"
+            "DispatchNode[$op_str,$index_node_str]))"
         )
-
     end
 end
