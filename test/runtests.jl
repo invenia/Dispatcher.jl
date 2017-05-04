@@ -299,6 +299,34 @@ end
                 @test collect(ctx_nodes[1].kwargs) == [(:limit, 1)]
             end
 
+            @testset "Op (using Type)" begin
+                ex = quote
+                    @dispatch_context begin
+                        @op Integer(2.0)
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 1
+                @test isa(ctx_nodes[1], Op)
+                @test ctx_nodes[1].func == Integer
+                @test collect(ctx_nodes[1].args) == [2.0]
+                @test isempty(ctx_nodes[1].kwargs)
+            end
+
+            @testset "Op (using non-callable objects throws exception)" begin
+                @test_throws MethodError Op(3)
+                @test_throws MethodError Op(true)
+                @test_throws MethodError Op(print())
+                @test_throws MethodError Op([1,2])
+            end
+
             @testset "Generic (Op)" begin
                 ex = quote
                     @dispatch_context begin
