@@ -835,6 +835,68 @@ end
     end
 
     @testset "Examples" begin
+        @testset "Referencing symbols from other packages" begin
+            @testset "Referencing symbols with import" begin
+                Pkg.add("TimeZones")
+
+                pnums = addprocs(3)
+                @everywhere using Dispatcher
+                @everywhere import TimeZones
+
+                try
+                    ctx = @dispatch_context begin
+                        a = @op TimeZones.ZonedDateTime(
+                            DateTime(2014,1,1), TimeZones.TimeZone("Europe/Warsaw")
+                        )
+                        b = @op TimeZones.ZonedDateTime(
+                            DateTime(2014,1,2), TimeZones.TimeZone("Europe/Warsaw")
+                        )
+                        b = @op TimeZones.astimezone(a, TimeZones.TimeZone("Asia/Tokyo"))
+                        d = Op(max, a, b)
+                    end
+
+                    exec = ParallelExecutor()
+                    (results,) = run!(exec, ctx)
+                    @test !iserror(results)
+                    run_future = unwrap(results)
+                    @test isready(run_future)
+                    @test fetch(run_future) == TimeZones.ZonedDateTime(
+                        DateTime(2014,1,2), TimeZones.TimeZone("Europe/Warsaw")
+                    )
+                finally
+                    rmprocs(pnums)
+                end
+            end
+
+            @testset "Referencing symbols with using" begin
+                Pkg.add("TimeZones")
+
+                pnums = addprocs(3)
+                @everywhere using Dispatcher
+                @everywhere using TimeZones
+
+                try
+                    ctx = @dispatch_context begin
+                        a = @op ZonedDateTime(DateTime(2014,1,1), TimeZone("Europe/Warsaw"))
+                        b = @op ZonedDateTime(DateTime(2014,1,2), TimeZone("Europe/Warsaw"))
+                        b = @op astimezone(a, TimeZone("Asia/Tokyo"))
+                        d = Op(max, a, b)
+                    end
+
+                    exec = ParallelExecutor()
+                    (results,) = run!(exec, ctx)
+                    @test !iserror(results)
+                    run_future = unwrap(results)
+                    @test isready(run_future)
+                    @test fetch(run_future) == ZonedDateTime(
+                        DateTime(2014,1,2), TimeZone("Europe/Warsaw")
+                    )
+                finally
+                    rmprocs(pnums)
+                end
+            end
+        end
+
         @testset "Dask Do" begin
             function slowadd(x, y)
                 return x + y
