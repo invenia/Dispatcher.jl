@@ -76,13 +76,12 @@ macro component(func::Expr)
 
     ctx_sym = gensym("ctx")
     insert!(func.args[1].args, 2, Expr(:(::), ctx_sym, :(Dispatcher.DispatchContext)))
-    func.args[1].args[1] = esc(func.args[1].args[1])
 
     new_func = macroexpand(func)
 
     process_nodes!(new_func.args[2], ctx_sym)
 
-    return new_func
+    return esc(new_func)
 end
 
 """

@@ -17,6 +17,17 @@ function test_addproc(x::Int; level=LOG_LEVEL)
     @everywhere Memento.config(level; fmt="[{level} | {name}]: {msg}")
 end
 
+module OtherPackage
+
+export MyType
+
+type MyType
+    x
+end
+
+end # module
+
+
 @testset "Graph" begin
     @testset "Adding" begin
         g = DispatchGraph()
@@ -356,6 +367,80 @@ end
                         x = @op node + 3
                         y = @op node + 1
                         x, y
+                    end
+
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        b, c = @include comp(a)
+                        d = @op b * c
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 4
+                @test all(n->isa(n, Op), ctx_nodes)
+
+                op_ctx = let
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        x = @op a + 3
+                        y = @op a + 1
+                        d = @op x * y
+                    end
+                end
+
+                @test ctx.graph.graph == op_ctx.graph.graph
+            end
+
+            @testset "Components (importing symbols from other modules)" begin
+                import OtherPackage
+
+                ex = quote
+                    @component function foo(var::OtherPackage.MyType)
+                        return var
+                    end
+
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        b, c = @include comp(a)
+                        d = @op b * c
+                    end
+                end
+
+                expanded_ex = macroexpand(ex)
+
+                ctx = eval(expanded_ex)
+
+                @test isa(ctx, DispatchContext)
+
+                ctx_nodes = collect(nodes(ctx.graph))
+                @test length(ctx_nodes) == 4
+                @test all(n->isa(n, Op), ctx_nodes)
+
+                op_ctx = let
+                    @dispatch_context begin
+                        a = @op 1 + 2
+                        x = @op a + 3
+                        y = @op a + 1
+                        d = @op x * y
+                    end
+                end
+
+                @test ctx.graph.graph == op_ctx.graph.graph
+            end
+
+            @testset "Components (using symbols from other modules)" begin
+                using OtherPackage
+
+                ex = quote
+                    @component function foo(var::MyType)
+                        return var
                     end
 
                     @dispatch_context begin
