@@ -17,7 +17,7 @@ function test_addproc(x::Int; level=LOG_LEVEL)
     @everywhere Memento.config(level; fmt="[{level} | {name}]: {msg}")
 end
 
-module OtherPackage
+module OtherModule
 
 export MyType
 
@@ -399,10 +399,10 @@ end
             end
 
             @testset "Components (importing symbols from other modules)" begin
-                import OtherPackage
+                import OtherModule
 
                 ex = quote
-                    @component function foo(var::OtherPackage.MyType)
+                    @component function foo(var::OtherModule.MyType)
                         return var
                     end
 
@@ -436,7 +436,7 @@ end
             end
 
             @testset "Components (using symbols from other modules)" begin
-                using OtherPackage
+                using OtherModule
 
                 ex = quote
                     @component function foo(var::MyType)
