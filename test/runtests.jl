@@ -2,6 +2,7 @@ using Dispatcher
 using ResultTypes
 using Base.Test
 using Memento
+using Iterators
 
 import LightGraphs
 
@@ -837,22 +838,16 @@ end
     @testset "Examples" begin
         @testset "Referencing symbols from other packages" begin
             @testset "Referencing symbols with import" begin
-                Pkg.add("TimeZones")
-
                 pnums = addprocs(3)
                 @everywhere using Dispatcher
-                @everywhere import TimeZones
+                @everywhere import Iterators
 
                 try
                     ctx = @dispatch_context begin
-                        a = @op TimeZones.ZonedDateTime(
-                            DateTime(2014,1,1), TimeZones.TimeZone("Europe/Warsaw")
-                        )
-                        b = @op TimeZones.ZonedDateTime(
-                            DateTime(2014,1,2), TimeZones.TimeZone("Europe/Warsaw")
-                        )
-                        b = @op TimeZones.astimezone(a, TimeZones.TimeZone("Asia/Tokyo"))
-                        d = Op(max, a, b)
+                        a = @op Iterators.imap(+, [1,2,3], [4,5,6])
+                        b = @op Iterators.distinct(a)
+                        c = @op Iterators.nth(a, 3)
+                        c = @op Iterators.nth(b, 3)
                     end
 
                     exec = ParallelExecutor()
@@ -860,27 +855,23 @@ end
                     @test !iserror(results)
                     run_future = unwrap(results)
                     @test isready(run_future)
-                    @test fetch(run_future) == TimeZones.ZonedDateTime(
-                        DateTime(2014,1,2), TimeZones.TimeZone("Europe/Warsaw")
-                    )
+                    @test fetch(run_future) == 9
                 finally
                     rmprocs(pnums)
                 end
             end
 
             @testset "Referencing symbols with using" begin
-                Pkg.add("TimeZones")
-
                 pnums = addprocs(3)
                 @everywhere using Dispatcher
-                @everywhere using TimeZones
+                @everywhere using Iterators
 
                 try
                     ctx = @dispatch_context begin
-                        a = @op ZonedDateTime(DateTime(2014,1,1), TimeZone("Europe/Warsaw"))
-                        b = @op ZonedDateTime(DateTime(2014,1,2), TimeZone("Europe/Warsaw"))
-                        b = @op astimezone(a, TimeZone("Asia/Tokyo"))
-                        d = Op(max, a, b)
+                        a = @op imap(+, [1,2,3], [4,5,6])
+                        b = @op distinct(a)
+                        c = @op nth(a, 3)
+                        c = @op nth(b, 3)
                     end
 
                     exec = ParallelExecutor()
@@ -888,9 +879,7 @@ end
                     @test !iserror(results)
                     run_future = unwrap(results)
                     @test isready(run_future)
-                    @test fetch(run_future) == ZonedDateTime(
-                        DateTime(2014,1,2), TimeZone("Europe/Warsaw")
-                    )
+                    @test fetch(run_future) == 9
                 finally
                     rmprocs(pnums)
                 end
