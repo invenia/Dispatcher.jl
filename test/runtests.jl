@@ -2,6 +2,7 @@ using Dispatcher
 using ResultTypes
 using Base.Test
 using Memento
+using Iterators
 
 import LightGraphs
 
@@ -920,6 +921,56 @@ end
     end
 
     @testset "Examples" begin
+        @testset "Referencing symbols from other packages" begin
+            @testset "Referencing symbols with import" begin
+                pnums = addprocs(3)
+                @everywhere using Dispatcher
+                @everywhere import Iterators
+
+                try
+                    ctx = @dispatch_context begin
+                        a = @op Iterators.imap(+, [1,2,3], [4,5,6])
+                        b = @op Iterators.distinct(a)
+                        c = @op Iterators.nth(a, 3)
+                        c = @op Iterators.nth(b, 3)
+                    end
+
+                    exec = ParallelExecutor()
+                    (results,) = run!(exec, ctx)
+                    @test !iserror(results)
+                    run_future = unwrap(results)
+                    @test isready(run_future)
+                    @test fetch(run_future) == 9
+                finally
+                    rmprocs(pnums)
+                end
+            end
+
+            @testset "Referencing symbols with using" begin
+                pnums = addprocs(3)
+                @everywhere using Dispatcher
+                @everywhere using Iterators
+
+                try
+                    ctx = @dispatch_context begin
+                        a = @op imap(+, [1,2,3], [4,5,6])
+                        b = @op distinct(a)
+                        c = @op nth(a, 3)
+                        c = @op nth(b, 3)
+                    end
+
+                    exec = ParallelExecutor()
+                    (results,) = run!(exec, ctx)
+                    @test !iserror(results)
+                    run_future = unwrap(results)
+                    @test isready(run_future)
+                    @test fetch(run_future) == 9
+                finally
+                    rmprocs(pnums)
+                end
+            end
+        end
+
         @testset "Dask Do" begin
             function slowadd(x, y)
                 return x + y
