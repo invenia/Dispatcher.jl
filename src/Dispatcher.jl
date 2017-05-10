@@ -1,7 +1,7 @@
 module Dispatcher
 
 # ONLY NECESSARY ON 0.5
-if VERSION < v"0.6-"
+if VERSION < v"0.6.0-dev.1515"
     function asyncmap(f, c...; ntasks=0)
         collect(Base.AsyncGenerator(f, c...; ntasks=ntasks))
     end
