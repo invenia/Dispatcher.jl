@@ -40,14 +40,15 @@ export @dispatch_context,
     @include
 
 using AutoHashEquals
+using Compat
 using DataStructures
 using DeferredFutures
-using Iterators
+using IterTools
 using LightGraphs
 using Memento
 using ResultTypes
 
-abstract DispatcherError <: Exception
+@compat abstract type DispatcherError <: Exception end
 
 const logger = get_logger(current_module())
 
