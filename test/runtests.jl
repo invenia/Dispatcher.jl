@@ -2,7 +2,7 @@ using Dispatcher
 using ResultTypes
 using Base.Test
 using Memento
-using Iterators
+using IterTools
 
 import LightGraphs
 
@@ -925,14 +925,14 @@ end
             @testset "Referencing symbols with import" begin
                 pnums = addprocs(3)
                 @everywhere using Dispatcher
-                @everywhere import Iterators
+                @everywhere import IterTools
 
                 try
                     ctx = @dispatch_context begin
-                        a = @op Iterators.imap(+, [1,2,3], [4,5,6])
-                        b = @op Iterators.distinct(a)
-                        c = @op Iterators.nth(a, 3)
-                        c = @op Iterators.nth(b, 3)
+                        a = @op IterTools.imap(+, [1,2,3], [4,5,6])
+                        b = @op IterTools.distinct(a)
+                        c = @op IterTools.nth(a, 3)
+                        c = @op IterTools.nth(b, 3)
                     end
 
                     exec = ParallelExecutor()
@@ -949,7 +949,7 @@ end
             @testset "Referencing symbols with using" begin
                 pnums = addprocs(3)
                 @everywhere using Dispatcher
-                @everywhere using Iterators
+                @everywhere using IterTools
 
                 try
                     ctx = @dispatch_context begin

@@ -1,3 +1,5 @@
+import Compat.Iterators: filter
+
 """
 `DependencyError` wraps any errors (and corresponding traceback)
 that occur on the dependency of a given nodes.
@@ -33,7 +35,7 @@ A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
 the [`dependencies`](@ref) function.
 """
-abstract DispatchNode <: DeferredFutures.AbstractRemoteRef
+@compat abstract type DispatchNode <: DeferredFutures.AbstractRemoteRef end
 
 const DispatchResult = Result{DispatchNode, DependencyError}
 

@@ -1,5 +1,3 @@
-import Iterators: chain
-
 if VERSION >= v"0.6.0-dev.2830"
     import Base.Distributed: wrap_on_error, wrap_retry
 elseif VERSION >= v"0.6.0-dev.2603"
@@ -27,7 +25,7 @@ run!(exec, context)
 NOTE: Currently, it is expected that `dispatch!(::T, ::DispatchNode)` returns
 something to wait on (ie: `Task`, `Future`, `Channel`, [`DispatchNode`](@ref), etc)
 """
-abstract Executor
+@compat abstract type Executor end
 
 immutable ExecutorError{T} <: DispatcherError
     msg::T
