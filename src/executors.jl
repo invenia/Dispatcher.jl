@@ -120,45 +120,11 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
         graph.nodes[node_id] = DataNode(val)
     end
 
-    # add_cleanup_nodes!(new_ctx; exclude=union(nodes, input_nodes))
-
     prepare!(exec, graph)
     node_results = dispatch!(exec, graph; throw_error=throw_error)
 
     # select the results requested by the `nodes` argument
     return DispatchResult[node_results[graph.nodes[node]] for node in output_nodes]
-end
-
-"""
-    add_cleanup_nodes!(ctx::DispatchContext) -> DispatchContext
-
-For all nodes with children in a given context, add a `CleanupNode` to the graph which will
-wait for the child nodes to complete, then clean up the node's data.
-
-Return the first argument.
-"""
-function add_cleanup_nodes!(
-    ctx::DispatchContext;
-    exclude::Vector=DispatchNode[],
-)
-    graphcat(ctx.graph.graph)
-
-    for parent_node in collect(nodes(ctx))
-        child_nodes = collect(
-            DispatchNode,
-            filter(out_neighbors(ctx.graph, parent_node)) do node
-                !isa(node, CleanupNode) && !(node in exclude)
-            end,
-        )
-
-        if !isempty(child_nodes)
-            cleanup_node = add!(ctx, CleanupNode(parent_node, child_nodes))
-        end
-    end
-
-    graphcat(ctx.graph.graph)
-
-    return ctx
 end
 
 """
