@@ -753,7 +753,7 @@ end
                 else
                     @test_throws DependencyError run!(exec, ctx)
                 end
-                prepare!(exec, ctx)
+                prepare!(exec, ctx.graph)
                 @test any(run!(exec, ctx; throw_error=false)) do result
                     iserror(result) && isa(unwrap_error(result), DependencyError)
                 end
@@ -815,7 +815,7 @@ end
                         @test_throws DependencyError run!(exec, ctx)
                     end
 
-                    prepare!(exec, ctx)
+                    prepare!(exec, ctx.graph)
                     @test any(run!(exec, ctx; throw_error=false)) do result
                         iserror(result) && isa(unwrap_error(result), DependencyError)
                     end

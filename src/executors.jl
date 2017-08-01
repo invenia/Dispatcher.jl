@@ -58,7 +58,7 @@ nodes with fixed values (and ignoring nodes for which all paths descend to `inpu
 
 * `exec::Executor`: the executor which will execute this context
 * `ctx::DispatchContext`: the context which will be executed
-* `nodes::AbstractArray{T<:DispatchNode}`: the nodes whose results we are interested in
+* `output_nodes::AbstractArray{T<:DispatchNode}`: the nodes whose results we are interested in
 * `input_nodes::AbstractArray{T<:DispatchNode}`: "root" nodes of the subgraph which will be
   replaced with their fetched values
 
@@ -83,19 +83,32 @@ nodes with fixed values (and ignoring nodes for which all paths descend to `inpu
 function run!{T<:DispatchNode, S<:DispatchNode}(
     exec::Executor,
     ctx::DispatchContext,
-    nodes::AbstractArray{T},
+    output_nodes::AbstractArray{T},
     input_nodes::AbstractArray{S}=DispatchNode[];
     input_map::Associative=Dict{DispatchNode, Any}(),
     throw_error=true
 )
-    reduced_ctx = copy(ctx)
-    input_node_keys = DispatchNode[
-        n for n in chain(input_nodes, keys(input_map))
-    ]
+    graph = DispatchGraph()
+    to_visit = Stack(DispatchNode)
+    for node in output_nodes
+        push!(graph, node)
+        push!(to_visit, node)
+    end
 
-    reduced_ctx.graph = subgraph(ctx.graph, nodes, input_node_keys)
+    while !isempty(to_visit)
+        curr = pop!(to_visit)
 
-    if is_cyclic(reduced_ctx.graph.graph)
+        if !(haskey(input_map, curr) || curr in input_nodes)
+            dep_nodes = dependencies(curr)
+            for dep_node in dep_nodes
+                push!(to_visit, dep_node)
+                push!(graph, dep_node)
+                add_edge!(graph, dep_node, curr)
+            end
+        end
+    end
+
+    if is_cyclic(graph.graph)
         throw(ExecutorError(
             "Dispatcher can only run graphs without circular dependencies",
         ))
@@ -103,17 +116,17 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
 
     # replace nodes in input_map with their values
     for (node, val) in chain(zip(input_nodes, imap(fetch, input_nodes)), input_map)
-        node_id = reduced_ctx.graph.nodes[node]
-        reduced_ctx.graph.nodes[node_id] = DataNode(val)
+        node_id = graph.nodes[node]
+        graph.nodes[node_id] = DataNode(val)
     end
 
-    # add_cleanup_nodes!(reduced_ctx; exclude=union(nodes, input_nodes))
+    # add_cleanup_nodes!(new_ctx; exclude=union(nodes, input_nodes))
 
-    prepare!(exec, reduced_ctx)
-    node_results = dispatch!(exec, reduced_ctx; throw_error=throw_error)
+    prepare!(exec, graph)
+    node_results = dispatch!(exec, graph; throw_error=throw_error)
 
     # select the results requested by the `nodes` argument
-    return DispatchResult[node_results[reduced_ctx.graph.nodes[node]] for node in nodes]
+    return DispatchResult[node_results[graph.nodes[node]] for node in output_nodes]
 end
 
 """
@@ -165,13 +178,13 @@ function run!(exec::Executor, ctx::DispatchContext; kwargs...)
 end
 
 """
-    prepare!(exec::Executor, ctx::DispatchContext)
+    prepare!(exec::Executor, graph::DispatchGraph)
 
 This function prepares a context for execution.
 Call [`prepare!(::DispatchNode)`](@ref) on each node.
 """
-function prepare!(exec::Executor, ctx::DispatchContext)
-    for node in nodes(ctx.graph)
+function prepare!(exec::Executor, graph::DispatchGraph)
+    for node in nodes(graph)
         prepare!(node)
     end
 
@@ -179,7 +192,7 @@ function prepare!(exec::Executor, ctx::DispatchContext)
 end
 
 """
-    dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true) -> Vector
+    dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true) -> Vector
 
 The default `dispatch!` method uses `asyncmap` over all nodes in the context to call
 `dispatch!(exec, node)`. These `dispatch!` calls for each node are wrapped in various retry
@@ -219,7 +232,7 @@ and error handling methods.
 ## Arguments
 
 * `exec::Executor`: the executor we're running
-* `ctx::DispatchContext`: the context of nodes to run
+* `graph::DispatchGraph`: the context of nodes to run
 
 ## Keyword Arguments
 
@@ -251,7 +264,7 @@ failing_node = add!(ctx, Op(()->throw(ErrorException("ApplicationError"))))
 dep_node = add!(n -> println(n), failing_node)  # This will fail as well
 ```
 
-Then `dispatch!(exec, ctx)` will throw a `DependencyError` and
+Then `dispatch!(exec, ctx.graph)` will throw a `DependencyError` and
 `dispatch!(exec, ctx; throw_error=false)` will return an array of passing nodes and the
 `DependencyError`s (ie: `[n1, n2, DependencyError(...), DependencyError(...)]`).
 
@@ -268,7 +281,7 @@ http_node = add!(ctx, Op(()->http_get(...)))
 ```
 
 Assuming that the `http_get` function does not error 5 times the call to
-`dispatch!(exec, ctx)` will return [n1, n2, http_node].
+`dispatch!(exec, ctx.graph)` will return [n1, n2, http_node].
 If the `http_get` function either:
 
   1. fails with a different status code
@@ -277,8 +290,8 @@ If the `http_get` function either:
 
 then we'll see the same failure behaviour as in the previous example.
 """
-function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
-    ns = ctx.graph.nodes
+function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
+    ns = graph.nodes
 
     function run_inner!(id::Int)
         node = ns[id]
@@ -344,7 +357,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     function on_error_inner!(err::DependencyError)
         notice(logger, "Handling Error: $(summary(err))")
 
-        node = ctx.graph.nodes[err.id]
+        node = graph.nodes[err.id]
         if isa(node, Union{Op, IndexNode})
             reset!(node.result)
             put!(node.result, err)
@@ -368,7 +381,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
     ```
     results = pmap(
         run_inner!,
-        1:length(ctx.graph.nodes);
+        1:length(graph.nodes);
         distributed=false,
         retry_on=allow_retry(retry_on(exec)),
         retry_n=retries(exec),
@@ -393,7 +406,7 @@ function dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true)
         on_error_inner!
     )
 
-    len = length(ctx.graph.nodes)
+    len = length(graph.nodes)
     info(logger, "Executing $len graph nodes.")
     res = asyncmap(f, 1:len; ntasks=div(len * 3, 2))
     info(logger, "All $len nodes executed.")
