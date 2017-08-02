@@ -404,12 +404,14 @@ end
 
                 ex = quote
                     @component function foo(var::OtherModule.MyType)
-                        return var
+                        x = @op var + 3
+                        y = @op var + 1
+                        x, y
                     end
 
                     @dispatch_context begin
-                        a = @op 1 + 2
-                        b, c = @include comp(a)
+                        a = OtherModule.MyType(3)
+                        b, c = @include foo(a)
                         d = @op b * c
                     end
                 end
@@ -421,12 +423,11 @@ end
                 @test isa(ctx, DispatchContext)
 
                 ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 4
+                @test length(ctx_nodes) == 3
                 @test all(n->isa(n, Op), ctx_nodes)
 
                 op_ctx = let
                     @dispatch_context begin
-                        a = @op 1 + 2
                         x = @op a + 3
                         y = @op a + 1
                         d = @op x * y
@@ -441,12 +442,14 @@ end
 
                 ex = quote
                     @component function foo(var::MyType)
-                        return var
+                        x = @op var + 3
+                        y = @op var + 1
+                        x, y
                     end
 
                     @dispatch_context begin
-                        a = @op 1 + 2
-                        b, c = @include comp(a)
+                        a = MyType(3)
+                        b, c = @include foo(a)
                         d = @op b * c
                     end
                 end
@@ -458,12 +461,11 @@ end
                 @test isa(ctx, DispatchContext)
 
                 ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 4
+                @test length(ctx_nodes) == 3
                 @test all(n->isa(n, Op), ctx_nodes)
 
                 op_ctx = let
                     @dispatch_context begin
-                        a = @op 1 + 2
                         x = @op a + 3
                         y = @op a + 1
                         d = @op x * y
