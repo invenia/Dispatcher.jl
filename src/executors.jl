@@ -7,10 +7,10 @@ else
 end
 
 """
-An `Executor` handles execution of [`DispatchContext`](@ref)s.
+An `Executor` handles execution of [`DispatchGraph`](@ref)s.
 
 A type `T <: Executor` must implement `dispatch!(::T, ::DispatchNode)`
-and may optionally implement `dispatch!(::T, ::DispatchContext; throw_error=true)`.
+and may optionally implement `dispatch!(::T, ::DispatchGraph; throw_error=true)`.
 
 The function call tree will look like this when an executor is run:
 ```
@@ -49,64 +49,49 @@ and should be retried (and `false` otherwise). The default `retry_on` method ret
 retry_on(exec::Executor) = Function[]
 
 """
-    run!(exec, ctx, nodes, input_nodes; input_map, throw_error) -> DispatchResult
+    run!(exec, output_nodes, input_nodes; input_map, throw_error) -> DispatchResult
 
-Run a subset of a graph, ending in `nodes`, and using `input_nodes`/`input_map` to replace
-nodes with fixed values (and ignoring nodes for which all paths descend to `input_nodes`).
+Create a graph, ending in `output_nodes`, and using `input_nodes`/`input_map` to
+replace nodes with fixed values (and ignoring nodes for which all paths descend to
+`input_nodes`), then execute it.
 
 # Arguments
 
-* `exec::Executor`: the executor which will execute this context
-* `ctx::DispatchContext`: the context which will be executed
-* `output_nodes::AbstractArray{T<:DispatchNode}`: the nodes whose results we are interested in
-* `input_nodes::AbstractArray{T<:DispatchNode}`: "root" nodes of the subgraph which will be
-  replaced with their fetched values
+* `exec::Executor`: the executor which will execute the graph
+* `graph::DispatchGraph`: the graph which will be executed
+* `output_nodes::AbstractArray{T<:DispatchNode}`: the nodes whose results we are interested
+  in
+* `input_nodes::AbstractArray{T<:DispatchNode}`: "root" nodes of the graph which will be
+  replaced with their fetched values (dependencies of these nodes are not included in the
+  graph)
 
 # Keyword Arguments
 
 * `input_map::Associative=Dict{DispatchNode, Any}()`: dict keys are "root" nodes of the
-  subgraph which will be replaced with the dict values
+  subgraph which will be replaced with the dict values (dependencies of these nodes are not
+  included in the graph)
 * `throw_error::Bool`: whether to throw any [`DependencyError`](@ref)s immediately (see
-  [`dispatch!(::Executor, ::DispatchContext)`](@ref) for more information)
+  [`dispatch!(::Executor, ::DispatchGraph)`](@ref) for more information)
 
 # Returns
 
-* `Vector{DispatchResult}`: an array containing a `DispatchResult` for each node in `nodes`,
-  in that order.
+* `Vector{DispatchResult}`: an array containing a `DispatchResult` for each node in
+  `output_nodes`, in that order.
 
 # Throws
 
-* `ExecutorError`: if the context's graph contains a cycle
+* `ExecutorError`: if the constructed graph contains a cycle
 * `CompositeException`/[`DependencyError`](@ref): see documentation for
-  [`dispatch!(::Executor, ::DispatchContext)`](@ref)
+  [`dispatch!(::Executor, ::DispatchGraph)`](@ref)
 """
 function run!{T<:DispatchNode, S<:DispatchNode}(
     exec::Executor,
-    ctx::DispatchContext,
     output_nodes::AbstractArray{T},
     input_nodes::AbstractArray{S}=DispatchNode[];
     input_map::Associative=Dict{DispatchNode, Any}(),
     throw_error=true
 )
-    graph = DispatchGraph()
-    to_visit = Stack(DispatchNode)
-    for node in output_nodes
-        push!(graph, node)
-        push!(to_visit, node)
-    end
-
-    while !isempty(to_visit)
-        curr = pop!(to_visit)
-
-        if !(haskey(input_map, curr) || curr in input_nodes)
-            dep_nodes = dependencies(curr)
-            for dep_node in dep_nodes
-                push!(to_visit, dep_node)
-                push!(graph, dep_node)
-                add_edge!(graph, dep_node, curr)
-            end
-        end
-    end
+    graph = build_graph(output_nodes, Set(chain(input_nodes, keys(input_map))))
 
     if is_cyclic(graph.graph)
         throw(ExecutorError(
@@ -128,19 +113,56 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
 end
 
 """
-    run!(exec::Executor, ctx::DispatchContext; kwargs...)
+    build_graph(output_nodes, input_nodes) -> DispatchGraph
 
-The `run!` function prepares a [`DispatchContext`](@ref) for dispatch and then
+Construct a graph starting from `input_nodes` and ending in `output_nodes`.
+The graph is created by recursively identifying dependencies of nodes starting with
+`output_nodes` and ending with `input_nodes` (dependencies of `input_nodes` are not added to
+the graph).
+"""
+function build_graph{T<:DispatchNode, S<:DispatchNode}(
+    output_nodes::AbstractArray{T},
+    input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
+)
+    graph = DispatchGraph()
+    to_visit = Stack(DispatchNode)
+    for node in output_nodes
+        push!(graph, node)
+        push!(to_visit, node)
+    end
+
+    while !isempty(to_visit)
+        curr = pop!(to_visit)
+
+        if !(curr in input_nodes)
+            dep_nodes = dependencies(curr)
+            for dep_node in dep_nodes
+                push!(to_visit, dep_node)
+                push!(graph, dep_node)
+                add_edge!(graph, dep_node, curr)
+            end
+        end
+    end
+
+    return graph
+end
+
+build_graph(output_node::DispatchNode) = build_graph([output_node])
+
+"""
+    run!(exec::Executor, graph::DispatchGraph; kwargs...)
+
+The `run!` function prepares a [`DispatchGraph`](@ref) for dispatch and then
 dispatches [`run!(::DispatchNode)`](@ref) calls for all nodes in its graph.
 
 Users will almost never want to add methods to this function for different
-[`Executor`](@ref) subtypes; overriding [`dispatch!(::Executor, ::DispatchContext)`](@ref)
+[`Executor`](@ref) subtypes; overriding [`dispatch!(::Executor, ::DispatchGraph)`](@ref)
 is the preferred pattern.
 
 Return an array containing a `Result{DispatchNode, DependencyError}` for each leaf node.
 """
-function run!(exec::Executor, ctx::DispatchContext; kwargs...)
-    return run!(exec, ctx, collect(DispatchNode, leaf_nodes(ctx.graph)); kwargs...)
+function run!(exec::Executor, graph::DispatchGraph; kwargs...)
+    return run!(exec, collect(DispatchNode, leaf_nodes(graph)); kwargs...)
 end
 
 """
@@ -223,15 +245,15 @@ Assuming we have some uncaught application error:
 
 ```julia
 exec = AsyncExecutor()
-ctx = DispatchContext()
-n1 = add!(ctx, Op()->3)
-n2 = add!(ctx, Op()->4)
-failing_node = add!(ctx, Op(()->throw(ErrorException("ApplicationError"))))
-dep_node = add!(n -> println(n), failing_node)  # This will fail as well
+n1 = Op(() -> 3)
+n2 = Op(() -> 4)
+failing_node = Op(() -> throw(ErrorException("ApplicationError")))
+dep_node = Op(n -> println(n), failing_node)  # This node will fail as well
+graph = build_graph([n1, n2, failing_node, dep_node])
 ```
 
-Then `dispatch!(exec, ctx.graph)` will throw a `DependencyError` and
-`dispatch!(exec, ctx; throw_error=false)` will return an array of passing nodes and the
+Then `dispatch!(exec, graph)` will throw a `DependencyError` and
+`dispatch!(exec, graph; throw_error=false)` will return an array of passing nodes and the
 `DependencyError`s (ie: `[n1, n2, DependencyError(...), DependencyError(...)]`).
 
 ### Example 2
@@ -240,14 +262,14 @@ Now if we want to retry our node on certain errors we can do:
 
 ```julia
 exec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == "503"])
-ctx = DispatchContext()
-n1 = add!(ctx, Op()->3)
-n2 = add!(ctx, Op()->4)
-http_node = add!(ctx, Op(()->http_get(...)))
+n1 = Op(() -> 3)
+n2 = Op(() -> 4)
+http_node = Op(() -> http_get(...))
+graph = build_graph([n1, n2, http_node])
 ```
 
 Assuming that the `http_get` function does not error 5 times the call to
-`dispatch!(exec, ctx.graph)` will return [n1, n2, http_node].
+`dispatch!(exec, graph)` will return [n1, n2, http_node].
 If the `http_get` function either:
 
   1. fails with a different status code
@@ -419,7 +441,7 @@ dispatch!(exec::AsyncExecutor, node::DispatchNode) = @async run!(node)
 `ParallelExecutor` is an [`Executor`](@ref) which creates a Julia `Task` for each
 [`DispatchNode`](@ref), spawns each of those tasks on the processes available to Julia,
 and waits for them to complete.
-`ParallelExecutor`'s [`dispatch!(::ParallelExecutor, ::DispatchContext)`](@ref) method will
+`ParallelExecutor`'s [`dispatch!(::ParallelExecutor, ::DispatchGraph)`](@ref) method will
 complete as long as each `DispatchNode`'s [`run!(::DispatchNode)`](@ref) method completes
 and there are no cycles in the computation graph.
 

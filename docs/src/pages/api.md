@@ -22,6 +22,7 @@ fetch{T<:DispatchNode}(::T)
 ```@docs
 Op
 Op(::Function)
+@op
 get_label(::Op)
 set_label!(::Op, ::AbstractString)
 has_label(::Op)
@@ -86,36 +87,17 @@ add_edge!(::DispatchGraph, ::DispatchNode, ::DispatchNode)
 ==(::DispatchGraph, ::DispatchGraph)
 ```
 
-## Context
-
-### DispatchContext
-
-```@docs
-DispatchContext
-nodes(::DispatchContext)
-add!
-```
-
-### Macros
-
-```@docs
-@dispatch_context
-@node
-@op
-@component
-@include
-```
-
 ## Executors
 
 ### Executor
 
 ```@docs
 Executor
-run!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})
-run!(::Executor, ::DispatchContext)
-prepare!(::Executor, ::DispatchContext)
-dispatch!(::Executor, ::DispatchContext)
+run!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})
+run!(::Executor, ::DispatchGraph)
+build_graph
+prepare!(::Executor, ::DispatchGraph)
+dispatch!(::Executor, ::DispatchGraph)
 Dispatcher.retries(::Executor)
 Dispatcher.retry_on(::Executor)
 ```

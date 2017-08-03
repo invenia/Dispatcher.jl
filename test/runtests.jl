@@ -250,86 +250,78 @@ end
         @testset "Simple" begin
             @testset "Op" begin
                 ex = quote
-                    @dispatch_context begin
-                        @op sum(4)
-                    end
+                    @op sum(4)
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                op = eval(expanded_ex)
 
-                @test isa(ctx, DispatchContext)
+                @test isa(op, Op)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 1
-                @test isa(ctx_nodes[1], Op)
-                @test ctx_nodes[1].func == sum
-                @test collect(ctx_nodes[1].args) == [4]
-                @test isempty(ctx_nodes[1].kwargs)
+                graph_nodes = collect(nodes(build_graph(op)))
+                @test length(graph_nodes) == 1
+                @test isa(graph_nodes[1], Op)
+                @test graph_nodes[1].func == sum
+                @test collect(graph_nodes[1].args) == [4]
+                @test isempty(graph_nodes[1].kwargs)
             end
 
             @testset "Op (kwargs, without semicolon)" begin
                 ex = quote
-                    @dispatch_context begin
-                        @op split("foo bar", limit=1)
-                    end
+                    @op split("foo bar", limit=1)
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                op = eval(expanded_ex)
 
-                @test isa(ctx, DispatchContext)
+                @test isa(op, Op)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 1
-                @test isa(ctx_nodes[1], Op)
-                @test ctx_nodes[1].func == split
-                @test collect(ctx_nodes[1].args) == ["foo bar"]
-                @test collect(ctx_nodes[1].kwargs) == [(:limit, 1)]
+                graph_nodes = collect(nodes(build_graph(op)))
+                @test length(graph_nodes) == 1
+                @test isa(graph_nodes[1], Op)
+                @test graph_nodes[1].func == split
+                @test collect(graph_nodes[1].args) == ["foo bar"]
+                @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
             end
 
             @testset "Op (kwargs, with semicolon)" begin
                 ex = quote
-                    @dispatch_context begin
-                        @op split("foo bar"; limit=1)
-                    end
+                    @op split("foo bar"; limit=1)
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                op = eval(expanded_ex)
 
-                @test isa(ctx, DispatchContext)
+                @test isa(op, Op)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 1
-                @test isa(ctx_nodes[1], Op)
-                @test ctx_nodes[1].func == split
-                @test collect(ctx_nodes[1].args) == ["foo bar"]
-                @test collect(ctx_nodes[1].kwargs) == [(:limit, 1)]
+                graph_nodes = collect(nodes(build_graph(op)))
+                @test length(graph_nodes) == 1
+                @test isa(graph_nodes[1], Op)
+                @test graph_nodes[1].func == split
+                @test collect(graph_nodes[1].args) == ["foo bar"]
+                @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
             end
 
             @testset "Op (using Type)" begin
                 ex = quote
-                    @dispatch_context begin
-                        @op Integer(2.0)
-                    end
+                    @op Integer(2.0)
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                op = eval(expanded_ex)
 
-                @test isa(ctx, DispatchContext)
+                @test isa(op, Op)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 1
-                @test isa(ctx_nodes[1], Op)
-                @test ctx_nodes[1].func == Integer
-                @test collect(ctx_nodes[1].args) == [2.0]
-                @test isempty(ctx_nodes[1].kwargs)
+                graph_nodes = collect(nodes(build_graph(op)))
+                @test length(graph_nodes) == 1
+                @test isa(graph_nodes[1], Op)
+                @test graph_nodes[1].func == Integer
+                @test collect(graph_nodes[1].args) == [2.0]
+                @test isempty(graph_nodes[1].kwargs)
             end
 
             @testset "Op (using non-callable objects throws exception)" begin
@@ -338,141 +330,108 @@ end
                 @test_throws MethodError Op(print())
                 @test_throws MethodError Op([1,2])
             end
-
-            @testset "Generic (Op)" begin
-                ex = quote
-                    @dispatch_context begin
-                        @node Op(sum, 4)
-                    end
-                end
-
-                expanded_ex = macroexpand(ex)
-
-                ctx = eval(expanded_ex)
-
-                @test isa(ctx, DispatchContext)
-
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 1
-                @test isa(ctx_nodes[1], Op)
-                @test ctx_nodes[1].func == sum
-                @test collect(ctx_nodes[1].args) == [4]
-                @test isempty(ctx_nodes[1].kwargs)
-            end
         end
 
         @testset "Complex" begin
             @testset "Components" begin
                 ex = quote
-                    @component function comp(node)
+                    function comp(node)
                         x = @op node + 3
                         y = @op node + 1
                         x, y
                     end
 
-                    @dispatch_context begin
-                        a = @op 1 + 2
-                        b, c = @include comp(a)
-                        d = @op b * c
-                    end
+                    a = @op 1 + 2
+                    b, c = comp(a)
+                    d = @op b * c
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                result_node = eval(expanded_ex)
+                @test isa(result_node, Op)
 
-                @test isa(ctx, DispatchContext)
+                graph = build_graph(result_node)
+                graph_nodes = collect(nodes(graph))
+                @test length(graph_nodes) == 4
+                @test all(n->isa(n, Op), graph_nodes)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 4
-                @test all(n->isa(n, Op), ctx_nodes)
-
-                op_ctx = let
-                    @dispatch_context begin
-                        a = @op 1 + 2
-                        x = @op a + 3
-                        y = @op a + 1
-                        d = @op x * y
-                    end
+                op_result = let
+                    a = @op 1 + 2
+                    x = @op a + 3
+                    y = @op a + 1
+                    d = @op x * y
                 end
 
-                @test ctx.graph.graph == op_ctx.graph.graph
+                @test graph.graph == build_graph(op_result).graph
             end
 
-            @testset "Components (importing symbols from other modules)" begin
+            @testset "Functions (importing symbols from other modules)" begin
                 import OtherModule
 
                 ex = quote
-                    @component function foo(var::OtherModule.MyType)
+                    function foo(var::OtherModule.MyType)
                         x = @op var + 3
                         y = @op var + 1
                         x, y
                     end
 
-                    @dispatch_context begin
-                        a = OtherModule.MyType(3)
-                        b, c = @include foo(a)
-                        d = @op b * c
-                    end
+                    a = OtherModule.MyType(3)
+                    b, c = foo(a)
+                    d = @op b * c
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                result_node = eval(expanded_ex)
+                @test isa(result_node, Op)
 
-                @test isa(ctx, DispatchContext)
+                graph = build_graph(result_node)
+                graph_nodes = collect(nodes(graph))
+                @test length(graph_nodes) == 3
+                @test all(n->isa(n, Op), graph_nodes)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 3
-                @test all(n->isa(n, Op), ctx_nodes)
-
-                op_ctx = let
-                    @dispatch_context begin
-                        x = @op a + 3
-                        y = @op a + 1
-                        d = @op x * y
-                    end
+                op_result = let
+                    x = @op a + 3
+                    y = @op a + 1
+                    d = @op x * y
                 end
 
-                @test ctx.graph.graph == op_ctx.graph.graph
+                @test graph.graph == build_graph(op_result).graph
             end
 
-            @testset "Components (using symbols from other modules)" begin
+            @testset "Functions (using symbols from other modules)" begin
                 using OtherModule
 
                 ex = quote
-                    @component function foo(var::MyType)
+                    function foo(var::MyType)
                         x = @op var + 3
                         y = @op var + 1
                         x, y
                     end
 
-                    @dispatch_context begin
-                        a = MyType(3)
-                        b, c = @include foo(a)
-                        d = @op b * c
-                    end
+                    a = MyType(3)
+                    b, c = foo(a)
+                    d = @op b * c
                 end
 
                 expanded_ex = macroexpand(ex)
 
-                ctx = eval(expanded_ex)
+                result_node = eval(expanded_ex)
+                @test isa(result_node, Op)
 
-                @test isa(ctx, DispatchContext)
+                graph = build_graph(result_node)
+                graph_nodes = collect(nodes(graph))
+                @test length(graph_nodes) == 3
+                @test all(n->isa(n, Op), graph_nodes)
 
-                ctx_nodes = collect(nodes(ctx.graph))
-                @test length(ctx_nodes) == 3
-                @test all(n->isa(n, Op), ctx_nodes)
-
-                op_ctx = let
-                    @dispatch_context begin
-                        x = @op a + 3
-                        y = @op a + 1
-                        d = @op x * y
-                    end
+                op_result = let
+                    x = @op a + 3
+                    y = @op a + 1
+                    d = @op x * y
                 end
 
-                @test ctx.graph.graph == op_ctx.graph.graph
+                @test graph.graph == build_graph(op_result).graph
             end
         end
     end
@@ -480,43 +439,37 @@ end
     @testset "Executors" begin
         @testset "Async" begin
             @testset "Example" begin
-                ctx = DispatchContext()
                 exec = AsyncExecutor()
                 comm = Channel{Float64}(2)
 
-                op = Op(()->3)
-                set_label!(op, "3")
-                @test isempty(dependencies(op))
-                a = add!(ctx, op)
+                a = Op(()->3)
+                set_label!(a, "3")
+                @test isempty(dependencies(a))
 
-                op = Op((x)->x, 4)
-                set_label!(op, "four")
-                @test isempty(dependencies(op))
-                b = add!(ctx, op)
+                b = Op((x)->x, 4)
+                set_label!(b, "four")
+                @test isempty(dependencies(b))
 
-                op = Op(max, a, b)
-                deps = dependencies(op)
+                c = Op(max, a, b)
+                deps = dependencies(c)
                 @test a in deps
                 @test b in deps
-                c = add!(ctx, op)
 
-                op = Op(sqrt, c)
-                @test c in dependencies(op)
-                d = add!(ctx, op)
+                d = Op(sqrt, c)
+                @test c in dependencies(d)
 
-                op = Op((x)->(factorial(x), factorial(2x)), c)
-                set_label!(op, "factorials")
-                @test c in dependencies(op)
-                e, f = add!(ctx, op)
+                e = Op((x)->(factorial(x), factorial(2x)), c)
+                set_label!(e, "factorials")
+                @test c in dependencies(e)
+                f, g = e
 
-                op = Op((x)->put!(comm, x / 2), f)
-                set_label!(op, "put!")
-                @test f in dependencies(op)
-                g = add!(ctx, op)
+                h = Op((x)->put!(comm, x / 2), g)
+                set_label!(h, "put!")
+                @test g in dependencies(h)
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                run!(exec, ctx)
+                run!(exec, [h])
 
                 @test isready(comm)
                 @test take!(comm) === result_truth
@@ -528,29 +481,25 @@ end
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
-                ctx = DispatchContext()
                 exec = AsyncExecutor()
                 comm = Channel{Float64}(3)
 
-                op = Op(()->(put!(comm, 4); comm))
-                set_label!(op, "put!(4)")
-                a = add!(ctx, op)
+                a = Op(()->(put!(comm, 4); comm))
+                set_label!(a, "put!(4)")
 
-                op = Op(a) do ch
+                b = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 1)
                 end
-                set_label!(op, "put!(x + 1)")
-                b = add!(ctx, op)
+                set_label!(b, "put!(x + 1)")
 
-                op = Op(a) do ch
+                c = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 2)
                 end
-                set_label!(op, "put!(x + 2)")
-                c = add!(ctx, op)
+                set_label!(c, "put!(x + 2)")
 
-                ret = run!(exec, ctx, [b])
+                ret = run!(exec, [b])
                 @test length(ret) == 1
                 @test !iserror(ret[1])
                 @test b === unwrap(ret[1])
@@ -558,7 +507,7 @@ end
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                results = run!(exec, ctx, [c]; input_map=Dict(a=>fetch(a)))
+                results = run!(exec, [c]; input_map=Dict(a=>fetch(a)))
                 @test fetch(comm) == 7
                 @test length(results) == 1
                 @test !iserror(results[1])
@@ -570,29 +519,25 @@ end
                 # this sort of stateful behaviour outside of the node graph is not recommended
                 # but we're using it here because it makes testing easy
 
-                ctx = DispatchContext()
                 exec = AsyncExecutor()
                 comm = Channel{Float64}(3)
 
-                op = Op(()->(put!(comm, 4); comm))
-                set_label!(op, "put!(4)")
-                a = add!(ctx, op)
+                a = Op(()->(put!(comm, 4); comm))
+                set_label!(a, "put!(4)")
 
-                op = Op(a) do ch
+                b = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 1)
                 end
-                set_label!(op, "put!(x + 1)")
-                b = add!(ctx, op)
+                set_label!(b, "put!(x + 1)")
 
-                op = Op(a) do ch
+                c = Op(a) do ch
                     x = take!(ch)
                     put!(ch, x + 2)
                 end
-                set_label!(op, "put!(x + 2)")
-                c = add!(ctx, op)
+                set_label!(c, "put!(x + 2)")
 
-                b_ret = run!(exec, ctx, [b])
+                b_ret = run!(exec, [b])
                 @test length(b_ret) == 1
                 @test !iserror(b_ret[1])
                 @test unwrap(b_ret[1]) === b
@@ -600,7 +545,7 @@ end
                 @test fetch(comm) == 5
 
                 # run remainder of graph
-                results = run!(exec, ctx, [c], [a])
+                results = run!(exec, [c], [a])
                 @test fetch(comm) == 7
                 @test length(results) == 1
                 @test !iserror(results[1])
@@ -608,7 +553,6 @@ end
             end
 
             @testset "No cycles allowed" begin
-                ctx = DispatchContext()
                 exec = AsyncExecutor()
 
                 a = Op(identity, 3)
@@ -617,29 +561,24 @@ end
                 set_label!(b, "a")
                 a.args = (b,)
 
-                @test_throws Exception begin
-                    add!(ctx, a)
-                    add!(ctx, b)
-                    run!(exec, ctx)
-                end
+                @test_throws Exception run!(exec, [a])
+                @test_throws Exception run!(exec, [b])
             end
 
-            @testset "Components" begin
+            @testset "Functions" begin
                 exec = AsyncExecutor()
 
-                @component function comp(node)
+                function comp(node)
                     x = @op node + 3
                     y = @op node + 1
                     x, y
                 end
 
-                ctx = @dispatch_context begin
-                    a = @op 1 + 2
-                    b, c = @include comp(a)
-                    d = @op b * c
-                end
+                a = @op 1 + 2
+                b, c = comp(a)
+                d = @op b * c
 
-                result = run!(exec, ctx, [d])
+                result = run!(exec, [d])
 
                 @test length(result) == 1
                 @test !iserror(result[1])
@@ -654,42 +593,36 @@ end
             comm = i > 1 ? RemoteChannel(()->Channel{Float64}(2)) : Channel{Float64}(2)
 
             try
-                ctx = DispatchContext()
                 exec = ParallelExecutor()
 
-                op = Op(()->3)
-                set_label!(op, "3")
-                @test isempty(dependencies(op))
-                a = add!(ctx, op)
+                a = Op(()->3)
+                set_label!(a, "3")
+                @test isempty(dependencies(a))
 
-                op = Op((x)->x, 4)
-                set_label!(op, "4")
-                @test isempty(dependencies(op))
-                b = add!(ctx, op)
+                b = Op((x)->x, 4)
+                set_label!(b, "4")
+                @test isempty(dependencies(b))
 
-                op = Op(max, a, b)
-                deps = dependencies(op)
+                c = Op(max, a, b)
+                deps = dependencies(c)
                 @test a in deps
                 @test b in deps
-                c = add!(ctx, op)
 
-                op = Op(sqrt, c)
-                @test c in dependencies(op)
-                d = add!(ctx, op)
+                d = Op(sqrt, c)
+                @test c in dependencies(d)
 
-                op = Op((x)->(factorial(x), factorial(2x)), c)
-                set_label!(op, "factorials")
-                @test c in dependencies(op)
-                e, f = add!(ctx, op)
+                e = Op((x)->(factorial(x), factorial(2x)), c)
+                set_label!(e, "factorials")
+                @test c in dependencies(e)
+                f, g = e
 
-                op = Op((x)->put!(comm, x / 2), f)
-                set_label!(op, "put!")
-                @test f in dependencies(op)
-                g = add!(ctx, op)
+                h = Op((x)->put!(comm, x / 2), g)
+                set_label!(h, "put!")
+                @test g in dependencies(h)
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                results = run!(exec, ctx)
+                results = run!(exec, build_graph(h))
 
                 @test isready(comm)
                 @test take!(comm) === result_truth
@@ -705,56 +638,50 @@ end
                 using Dispatcher
                 comm = Channel{Float64}(2)
 
-                ctx = DispatchContext()
                 exec = AsyncExecutor()
 
-                op = Op(()->3)
-                set_label!(op, "3")
-                @test isempty(dependencies(op))
-                a = add!(ctx, op)
+                a = Op(()->3)
+                set_label!(a, "3")
+                @test isempty(dependencies(a))
 
-                op = Op((x)->x, 4)
-                set_label!(op, "4")
-                @test isempty(dependencies(op))
-                b = add!(ctx, op)
+                b = Op((x)->x, 4)
+                set_label!(b, "4")
+                @test isempty(dependencies(b))
 
-                op = Op(max, a, b)
-                deps = dependencies(op)
+                c = Op(max, a, b)
+                deps = dependencies(c)
                 @test a in deps
                 @test b in deps
-                c = add!(ctx, op)
 
-                op = Op(sqrt, c)
-                @test c in dependencies(op)
-                d = add!(ctx, op)
+                d = Op(sqrt, c)
+                @test c in dependencies(d)
 
-                op = Op(
+                e = Op(
                     (x)-> (
                         factorial(x),
                         throw(ErrorException("Application Error"))
                     ), c
                 )
 
-                set_label!(op, "ApplicationError")
-                @test c in dependencies(op)
-                e, f = add!(ctx, op)
+                set_label!(e, "ApplicationError")
+                @test c in dependencies(e)
+                f, g = e
 
-                op = Op((x)->put!(comm, x / 2), f)
-                set_label!(op, "put!")
-                @test f in dependencies(op)
-                g = add!(ctx, op)
+                h = Op((x)->put!(comm, x / 2), g)
+                set_label!(h, "put!")
+                @test g in dependencies(h)
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
                 # Behaviour of `asyncmap` on exceptions changed
                 # between julia 0.5 and 0.6
                 if VERSION < v"0.6.0-"
-                    @test_throws CompositeException run!(exec, ctx)
+                    @test_throws CompositeException run!(exec, [h])
                 else
-                    @test_throws DependencyError run!(exec, ctx)
+                    @test_throws DependencyError run!(exec, [h])
                 end
-                prepare!(exec, ctx.graph)
-                @test any(run!(exec, ctx; throw_error=false)) do result
+                prepare!(exec, build_graph(h))
+                @test any(run!(exec, [h]; throw_error=false)) do result
                     iserror(result) && isa(unwrap_error(result), DependencyError)
                 end
                 @test !isready(comm)
@@ -767,56 +694,50 @@ end
                 comm = RemoteChannel(()->Channel{Float64}(2))
 
                 try
-                    ctx = DispatchContext()
                     exec = ParallelExecutor()
 
-                    op = Op(()->3)
-                    set_label!(op, "3")
-                    @test isempty(dependencies(op))
-                    a = add!(ctx, op)
+                    a = Op(()->3)
+                    set_label!(a, "3")
+                    @test isempty(dependencies(a))
 
-                    op = Op((x)->x, 4)
-                    set_label!(op, "4")
-                    @test isempty(dependencies(op))
-                    b = add!(ctx, op)
+                    b = Op((x)->x, 4)
+                    set_label!(b, "4")
+                    @test isempty(dependencies(b))
 
-                    op = Op(max, a, b)
-                    deps = dependencies(op)
+                    c = Op(max, a, b)
+                    deps = dependencies(c)
                     @test a in deps
                     @test b in deps
-                    c = add!(ctx, op)
 
-                    op = Op(sqrt, c)
-                    @test c in dependencies(op)
-                    d = add!(ctx, op)
+                    d = Op(sqrt, c)
+                    @test c in dependencies(d)
 
-                    op = Op(
+                    e = Op(
                         (x)-> (
                             factorial(x),
                             throw(ErrorException("Application Error"))
                         ), c
                     )
-                    set_label!(op, "ApplicationError")
-                    @test c in dependencies(op)
-                    e, f = add!(ctx, op)
+                    set_label!(e, "ApplicationError")
+                    @test c in dependencies(e)
+                    f, g = e
 
-                    op = Op((x)->put!(comm, x / 2), f)
-                    set_label!(op, "put!")
-                    @test f in dependencies(op)
-                    g = add!(ctx, op)
+                    h = Op((x)->put!(comm, x / 2), g)
+                    set_label!(h, "put!")
+                    @test g in dependencies(h)
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
                     # Behaviour of `asyncmap` on exceptions changed
                     # between julia 0.5 and 0.6
                     if VERSION < v"0.6.0-"
-                        @test_throws CompositeException run!(exec, ctx)
+                        @test_throws CompositeException run!(exec, [h])
                     else
-                        @test_throws DependencyError run!(exec, ctx)
+                        @test_throws DependencyError run!(exec, [h])
                     end
 
-                    prepare!(exec, ctx.graph)
-                    @test any(run!(exec, ctx; throw_error=false)) do result
+                    prepare!(exec, build_graph(h))
+                    @test any(run!(exec, [h]; throw_error=false)) do result
                         iserror(result) && isa(unwrap_error(result), DependencyError)
                     end
                     @test !isready(comm)
@@ -838,78 +759,72 @@ end
                 comm = RemoteChannel(()->Channel{Float64}(2))
 
                 try
-                    ctx = DispatchContext()
                     exec = ParallelExecutor()
 
-                    op = Op(
+                    a = Op(
                         ()-> begin
                             rand_sleep()
                             return 3
                         end
                     )
-                    set_label!(op, "3")
-                    @test isempty(dependencies(op))
-                    a = add!(ctx, op)
+                    set_label!(a, "3")
+                    @test isempty(dependencies(a))
 
-                    op = Op(
+                    b = Op(
                         (x)-> begin
                             rand_sleep()
                             return x
                         end, 4
                     )
-                    set_label!(op, "4")
-                    @test isempty(dependencies(op))
-                    b = add!(ctx, op)
+                    set_label!(b, "4")
+                    @test isempty(dependencies(b))
 
-                    op = Op(
+                    c = Op(
                         (x, y) -> begin
                             rand_sleep()
                             max(x, y)
                         end, a, b
                     )
-                    set_label!(op, "max")
-                    deps = dependencies(op)
+                    set_label!(c, "max")
+                    deps = dependencies(c)
                     @test a in deps
                     @test b in deps
-                    c = add!(ctx, op)
 
-                    op = Op(
+                    d = Op(
                         (x) -> begin
                             rand_sleep()
                             return sqrt(x)
                         end, c
                     )
-                    set_label!(op, "sqrt")
-                    @test c in dependencies(op)
-                    d = add!(ctx, op)
+                    set_label!(d, "sqrt")
+                    @test c in dependencies(d)
 
-                    op = Op(
+                    e = Op(
                         (x)-> begin
                             rand_sleep()
                             return (factorial(x), factorial(2x))
                         end, c
                     )
-                    set_label!(op, "factorials")
-                    @test c in dependencies(op)
-                    e, f = add!(ctx, op)
+                    set_label!(e, "factorials")
+                    @test c in dependencies(e)
+                    f, g = e
 
-                    op = Op(
+                    h = Op(
                         (x) -> begin
                             rand_sleep()
                             return put!(comm, x / 2)
-                        end, f
+                        end, g
                     )
-                    set_label!(op, "put!")
-                    @test f in dependencies(op)
-                    g = add!(ctx, op)
+                    set_label!(h, "put!")
+                    @test g in dependencies(h)
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    f = @spawnat 1 run!(exec, ctx)
+                    fut = @spawnat 1 run!(exec, [h])
                     sleep(s)
 
                     rmprocs(pnums[1:i])
-                    resp = fetch(f)
+                    resp = fetch(fut)
                     @test !isa(resp, RemoteException)
                     @test isready(comm)
                     @test take!(comm) === result_truth
@@ -930,15 +845,12 @@ end
                 @everywhere import IterTools
 
                 try
-                    ctx = @dispatch_context begin
-                        a = @op IterTools.imap(+, [1,2,3], [4,5,6])
-                        b = @op IterTools.distinct(a)
-                        c = @op IterTools.nth(a, 3)
-                        c = @op IterTools.nth(b, 3)
-                    end
+                    a = @op IterTools.imap(+, [1,2,3], [4,5,6])
+                    b = @op IterTools.distinct(a)
+                    c = @op IterTools.nth(b, 3)
 
                     exec = ParallelExecutor()
-                    (results,) = run!(exec, ctx)
+                    (results,) = run!(exec, [c])
                     @test !iserror(results)
                     run_future = unwrap(results)
                     @test isready(run_future)
@@ -954,15 +866,12 @@ end
                 @everywhere using IterTools
 
                 try
-                    ctx = @dispatch_context begin
-                        a = @op imap(+, [1,2,3], [4,5,6])
-                        b = @op distinct(a)
-                        c = @op nth(a, 3)
-                        c = @op nth(b, 3)
-                    end
+                    a = @op imap(+, [1,2,3], [4,5,6])
+                    b = @op distinct(a)
+                    c = @op nth(b, 3)
 
                     exec = ParallelExecutor()
-                    (results,) = run!(exec, ctx)
+                    (results,) = run!(exec, [c])
                     @test !iserror(results)
                     run_future = unwrap(results)
                     @test isready(run_future)
@@ -988,24 +897,22 @@ end
 
             data = [1, 2, 3]
 
-            ctx = @dispatch_context begin
-                A = map(data) do i
-                    @op slowinc(i)
-                end
-
-                B = map(A) do a
-                    @op slowadd(a, 10)
-                end
-
-                C = map(A) do a
-                    @op slowadd(a, 100)
-                end
-
-                result = @op ((@op slowsum(A...)) + (@op slowsum(B...)) + (@op slowsum(C...)))
+            A = map(data) do i
+                @op slowinc(i)
             end
 
+            B = map(A) do a
+                @op slowadd(a, 10)
+            end
+
+            C = map(A) do a
+                @op slowadd(a, 100)
+            end
+
+            result = @op ((@op slowsum(A...)) + (@op slowsum(B...)) + (@op slowsum(C...)))
+
             executor = AsyncExecutor()
-            (run_result,) = run!(executor, ctx, [result])
+            (run_result,) = run!(executor, [result])
 
             @test !iserror(run_result)
             run_future = unwrap(run_result)
@@ -1054,33 +961,31 @@ end
             end
 
             try
-                ctx = @dispatch_context begin
-                    filenames = ["mydata-$d.dat" for d in 1:100]
-                    data = [(@op load(filename)) for filename in filenames]
+                filenames = ["mydata-$d.dat" for d in 1:100]
+                data = [(@op load(filename)) for filename in filenames]
 
-                    reference = @op load_from_sql("sql://mytable")
-                    processed = [(@op process(d, reference)) for d in data]
+                reference = @op load_from_sql("sql://mytable")
+                processed = [(@op process(d, reference)) for d in data]
 
-                    rolled = map(1:(length(processed) - 2)) do i
-                        a = processed[i]
-                        b = processed[i + 1]
-                        c = processed[i + 2]
-                        roll_result = @op roll(a, b, c)
-                        return roll_result
-                    end
-
-                    compared = map(1:200) do i
-                        a = rand(rolled)
-                        b = rand(rolled)
-                        compare_result = @op compare(a, b)
-                        return compare_result
-                    end
-
-                    best = @op reduction(@node CollectNode(compared))
+                rolled = map(1:(length(processed) - 2)) do i
+                    a = processed[i]
+                    b = processed[i + 1]
+                    c = processed[i + 2]
+                    roll_result = @op roll(a, b, c)
+                    return roll_result
                 end
 
+                compared = map(1:200) do i
+                    a = rand(rolled)
+                    b = rand(rolled)
+                    compare_result = @op compare(a, b)
+                    return compare_result
+                end
+
+                best = @op reduction(CollectNode(compared))
+
                 executor = ParallelExecutor()
-                (run_best,) = run!(executor, ctx, [best])
+                (run_best,) = run!(executor, [best])
             finally
                 rmprocs(pnums)
             end
@@ -1088,12 +993,6 @@ end
     end
 
     @testset "Show" begin
-        ctx = DispatchContext()
-        @test sprint(show, ctx) == (
-            "DispatchContext(DispatchGraph($(ctx.graph.graph)," *
-            "NodeSet(DispatchNode[])),Dict{Any,Any}())"
-        )
-
         graph = DispatchGraph()
         @test sprint(show, graph) == "DispatchGraph($(graph.graph),NodeSet(DispatchNode[]))"
 

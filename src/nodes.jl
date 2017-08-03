@@ -319,8 +319,8 @@ It is meant to handle multiple return values from a `DispatchNode`.
 
 Example:
 ```julia
-n1, n2 = add!(ctx, Op(()->divrem(5, 2)))
-run(exec, ctx)
+n1, n2 = Op(() -> divrem(5, 2))
+run!(exec, [n1, n2])
 
 @assert fetch(n1) == 2
 @assert fetch(n2) == 1
@@ -648,7 +648,7 @@ Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 """
 `NodeSet` stores a correspondence between intances of [`DispatchNode`](@ref)s and
 the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
-[`DispatchContext`](@ref).
+[`DispatchGraph`](@ref).
 """
 type NodeSet
     id_dict::Dict{Int, DispatchNode}

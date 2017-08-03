@@ -10,11 +10,11 @@ Documentation: [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://
 
 ## Overview
 
-Using Dispatcher, a `DispatchContext` maintains a computation graph of `DispatchNode`s.
+Using Dispatcher, `run!` builds and runs a computation graph of `DispatchNode`s.
 `DispatchNode`s represent units of computation that can be run.
 The most common `DispatchNode` is `Op`, which represents a function call on some arguments.
 Some of those arguments may exist when building the graph, and others may represent the results of other `DispatchNode`s.
-An `Executor` executes a whole `DispatchContext`.
+An `Executor` executes a whole `DispatchGraph`.
 Two `Executor`s are provided.
 `AsyncExecutor` executes computations asynchronously using Julia `Task`s.
 `ParallelExecutor` executes computations in parallel using all available Julia processes (by calling `@spawn`).
@@ -31,7 +31,7 @@ Dispatcher is built to deal with discrete, heterogeneous data using any Julia fu
 Arbiter requires manually adding tasks and their dependencies and handling data passing.
 Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.
 
-> Isn't this just Dask
+> Isn't this just Dask?
 
 Pretty much.
 The plan is to implement another `Executor` and [integrate](https://github.com/dask/distributed/issues/586) with the [`dask.distributed`](https://distributed.readthedocs.io/) scheduler service to piggyback off of their great work.
