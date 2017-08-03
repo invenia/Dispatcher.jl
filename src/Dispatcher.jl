@@ -50,6 +50,5 @@ const logger = get_logger(current_module())
 include("nodes.jl")
 include("graph.jl")
 include("executors.jl")
-include("macros.jl")
 
 end # module
