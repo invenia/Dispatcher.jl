@@ -95,7 +95,6 @@ add_edge!(::DispatchGraph, ::DispatchNode, ::DispatchNode)
 Executor
 run!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})
 run!(::Executor, ::DispatchGraph)
-build_graph
 prepare!(::Executor, ::DispatchGraph)
 dispatch!(::Executor, ::DispatchGraph)
 Dispatcher.retries(::Executor)

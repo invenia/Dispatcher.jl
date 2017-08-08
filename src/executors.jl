@@ -91,7 +91,7 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
     input_map::Associative=Dict{DispatchNode, Any}(),
     throw_error=true
 )
-    graph = build_graph(output_nodes, Set(chain(input_nodes, keys(input_map))))
+    graph = DispatchGraph(output_nodes, Set(chain(input_nodes, keys(input_map))))
 
     if is_cyclic(graph.graph)
         throw(ExecutorError(
@@ -111,43 +111,6 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
     # select the results requested by the `nodes` argument
     return DispatchResult[node_results[graph.nodes[node]] for node in output_nodes]
 end
-
-"""
-    build_graph(output_nodes, input_nodes) -> DispatchGraph
-
-Construct a graph starting from `input_nodes` and ending in `output_nodes`.
-The graph is created by recursively identifying dependencies of nodes starting with
-`output_nodes` and ending with `input_nodes` (dependencies of `input_nodes` are not added to
-the graph).
-"""
-function build_graph{T<:DispatchNode, S<:DispatchNode}(
-    output_nodes::AbstractArray{T},
-    input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
-)
-    graph = DispatchGraph()
-    to_visit = Stack(DispatchNode)
-    for node in output_nodes
-        push!(graph, node)
-        push!(to_visit, node)
-    end
-
-    while !isempty(to_visit)
-        curr = pop!(to_visit)
-
-        if !(curr in input_nodes)
-            dep_nodes = dependencies(curr)
-            for dep_node in dep_nodes
-                push!(to_visit, dep_node)
-                push!(graph, dep_node)
-                add_edge!(graph, dep_node, curr)
-            end
-        end
-    end
-
-    return graph
-end
-
-build_graph(output_node::DispatchNode) = build_graph([output_node])
 
 """
     run!(exec::Executor, graph::DispatchGraph; kwargs...)
@@ -249,7 +212,7 @@ n1 = Op(() -> 3)
 n2 = Op(() -> 4)
 failing_node = Op(() -> throw(ErrorException("ApplicationError")))
 dep_node = Op(n -> println(n), failing_node)  # This node will fail as well
-graph = build_graph([n1, n2, failing_node, dep_node])
+graph = DispatchGraph([n1, n2, failing_node, dep_node])
 ```
 
 Then `dispatch!(exec, graph)` will throw a `DependencyError` and
@@ -265,7 +228,7 @@ exec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == "503"])
 n1 = Op(() -> 3)
 n2 = Op(() -> 4)
 http_node = Op(() -> http_get(...))
-graph = build_graph([n1, n2, http_node])
+graph = DispatchGraph([n1, n2, http_node])
 ```
 
 Assuming that the `http_get` function does not error 5 times the call to

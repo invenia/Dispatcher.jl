@@ -259,7 +259,7 @@ end
 
                 @test isa(op, Op)
 
-                graph_nodes = collect(nodes(build_graph(op)))
+                graph_nodes = collect(nodes(DispatchGraph(op)))
                 @test length(graph_nodes) == 1
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == sum
@@ -278,7 +278,7 @@ end
 
                 @test isa(op, Op)
 
-                graph_nodes = collect(nodes(build_graph(op)))
+                graph_nodes = collect(nodes(DispatchGraph(op)))
                 @test length(graph_nodes) == 1
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
@@ -297,7 +297,7 @@ end
 
                 @test isa(op, Op)
 
-                graph_nodes = collect(nodes(build_graph(op)))
+                graph_nodes = collect(nodes(DispatchGraph(op)))
                 @test length(graph_nodes) == 1
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
@@ -316,7 +316,7 @@ end
 
                 @test isa(op, Op)
 
-                graph_nodes = collect(nodes(build_graph(op)))
+                graph_nodes = collect(nodes(DispatchGraph(op)))
                 @test length(graph_nodes) == 1
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == Integer
@@ -351,7 +351,7 @@ end
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
 
-                graph = build_graph(result_node)
+                graph = DispatchGraph(result_node)
                 graph_nodes = collect(nodes(graph))
                 @test length(graph_nodes) == 4
                 @test all(n->isa(n, Op), graph_nodes)
@@ -363,7 +363,7 @@ end
                     d = @op x * y
                 end
 
-                @test graph.graph == build_graph(op_result).graph
+                @test graph.graph == DispatchGraph(op_result).graph
             end
 
             @testset "Functions (importing symbols from other modules)" begin
@@ -386,7 +386,7 @@ end
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
 
-                graph = build_graph(result_node)
+                graph = DispatchGraph(result_node)
                 graph_nodes = collect(nodes(graph))
                 @test length(graph_nodes) == 3
                 @test all(n->isa(n, Op), graph_nodes)
@@ -397,7 +397,7 @@ end
                     d = @op x * y
                 end
 
-                @test graph.graph == build_graph(op_result).graph
+                @test graph.graph == DispatchGraph(op_result).graph
             end
 
             @testset "Functions (using symbols from other modules)" begin
@@ -420,7 +420,7 @@ end
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
 
-                graph = build_graph(result_node)
+                graph = DispatchGraph(result_node)
                 graph_nodes = collect(nodes(graph))
                 @test length(graph_nodes) == 3
                 @test all(n->isa(n, Op), graph_nodes)
@@ -431,7 +431,7 @@ end
                     d = @op x * y
                 end
 
-                @test graph.graph == build_graph(op_result).graph
+                @test graph.graph == DispatchGraph(op_result).graph
             end
         end
     end
@@ -622,7 +622,7 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                results = run!(exec, build_graph(h))
+                results = run!(exec, DispatchGraph(h))
 
                 @test isready(comm)
                 @test take!(comm) === result_truth
@@ -680,7 +680,7 @@ end
                 else
                     @test_throws DependencyError run!(exec, [h])
                 end
-                prepare!(exec, build_graph(h))
+                prepare!(exec, DispatchGraph(h))
                 @test any(run!(exec, [h]; throw_error=false)) do result
                     iserror(result) && isa(unwrap_error(result), DependencyError)
                 end
@@ -736,7 +736,7 @@ end
                         @test_throws DependencyError run!(exec, [h])
                     end
 
-                    prepare!(exec, build_graph(h))
+                    prepare!(exec, DispatchGraph(h))
                     @test any(run!(exec, [h]; throw_error=false)) do result
                         iserror(result) && isa(unwrap_error(result), DependencyError)
                     end

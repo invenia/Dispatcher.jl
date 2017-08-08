@@ -29,8 +29,7 @@ export Executor,
     ParallelExecutor,
     dispatch!,
     prepare!,
-    run!,
-    build_graph
+    run!
 
 export @op
 

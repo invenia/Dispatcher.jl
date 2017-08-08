@@ -16,6 +16,50 @@ Create an empty `DispatchGraph`.
 DispatchGraph() = DispatchGraph(DiGraph(), NodeSet())
 
 """
+    DispatchGraph(output_nodes, input_nodes=[]) -> DispatchGraph
+
+Construct a `DispatchGraph` starting from `input_nodes` and ending in `output_nodes`.
+The graph is created by recursively identifying dependencies of nodes starting with
+`output_nodes` and ending with `input_nodes` (dependencies of `input_nodes` are not added to
+the graph).
+"""
+function DispatchGraph{T<:DispatchNode, S<:DispatchNode}(
+    output_nodes::AbstractArray{T},
+    input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
+)
+    graph = DispatchGraph()
+    to_visit = Stack(DispatchNode)
+    for node in output_nodes
+        push!(graph, node)
+        push!(to_visit, node)
+    end
+
+    while !isempty(to_visit)
+        curr = pop!(to_visit)
+
+        if !(curr in input_nodes)
+            dep_nodes = dependencies(curr)
+            for dep_node in dep_nodes
+                push!(to_visit, dep_node)
+                push!(graph, dep_node)
+                add_edge!(graph, dep_node, curr)
+            end
+        end
+    end
+
+    return graph
+end
+
+"""
+    DispatchGraph(output_node) -> DispatchGraph
+
+Construct a `DispatchGraph` ending in `output_nodes`.
+The graph is created by recursively identifying dependencies of nodes starting with
+`output_nodes`. This call is equivalent to `DispatchGraph([output_node])`.
+"""
+DispatchGraph(output_node::DispatchNode) = DispatchGraph([output_node])
+
+"""
     show(io::IO, graph::DispatchGraph)
 
 Print a simplified string representation of the `DispatchGraph` with its graph and nodes.
