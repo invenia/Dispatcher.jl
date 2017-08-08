@@ -656,12 +656,9 @@ end
                 d = Op(sqrt, c)
                 @test c in dependencies(d)
 
-                e = Op(
-                    (x)-> (
-                        factorial(x),
-                        throw(ErrorException("Application Error"))
-                    ), c
-                )
+                e = Op(c) do x
+                    (factorial(x), throw(ErrorException("Application Error")))
+                end
 
                 set_label!(e, "ApplicationError")
                 @test c in dependencies(e)
@@ -712,12 +709,9 @@ end
                     d = Op(sqrt, c)
                     @test c in dependencies(d)
 
-                    e = Op(
-                        (x)-> (
-                            factorial(x),
-                            throw(ErrorException("Application Error"))
-                        ), c
-                    )
+                    e = Op(c) do x
+                        return (factorial(x), throw(ErrorException("Application Error")))
+                    end
                     set_label!(e, "ApplicationError")
                     @test c in dependencies(e)
                     f, g = e
@@ -761,60 +755,48 @@ end
                 try
                     exec = ParallelExecutor()
 
-                    a = Op(
-                        ()-> begin
-                            rand_sleep()
-                            return 3
-                        end
-                    )
+                    a = Op() do
+                        rand_sleep()
+                        return 3
+                    end
                     set_label!(a, "3")
                     @test isempty(dependencies(a))
 
-                    b = Op(
-                        (x)-> begin
-                            rand_sleep()
-                            return x
-                        end, 4
-                    )
+                    b = Op(4) do x
+                        rand_sleep()
+                        return x
+                    end
                     set_label!(b, "4")
                     @test isempty(dependencies(b))
 
-                    c = Op(
-                        (x, y) -> begin
-                            rand_sleep()
-                            max(x, y)
-                        end, a, b
-                    )
+                    c = Op(a, b) do x, y
+                        rand_sleep()
+                        return max(x, y)
+                    end
                     set_label!(c, "max")
                     deps = dependencies(c)
                     @test a in deps
                     @test b in deps
 
-                    d = Op(
-                        (x) -> begin
-                            rand_sleep()
-                            return sqrt(x)
-                        end, c
-                    )
+                    d = Op(c) do x
+                        rand_sleep()
+                        return sqrt(x)
+                    end
                     set_label!(d, "sqrt")
                     @test c in dependencies(d)
 
-                    e = Op(
-                        (x)-> begin
-                            rand_sleep()
-                            return (factorial(x), factorial(2x))
-                        end, c
-                    )
+                    e = Op(c) do x
+                        rand_sleep()
+                        return (factorial(x), factorial(2x))
+                    end
                     set_label!(e, "factorials")
                     @test c in dependencies(e)
                     f, g = e
 
-                    h = Op(
-                        (x) -> begin
-                            rand_sleep()
-                            return put!(comm, x / 2)
-                        end, g
-                    )
+                    h = Op(g) do x
+                        rand_sleep()
+                        return put!(comm, x / 2)
+                    end
                     set_label!(h, "put!")
                     @test g in dependencies(h)
 
