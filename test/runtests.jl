@@ -561,8 +561,8 @@ end
                 set_label!(b, "a")
                 a.args = (b,)
 
-                @test_throws Exception run!(exec, [a])
-                @test_throws Exception run!(exec, [b])
+                @test_throws DispatcherError run!(exec, [a])
+                @test_throws DispatcherError run!(exec, [b])
             end
 
             @testset "Functions" begin

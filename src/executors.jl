@@ -91,7 +91,7 @@ function run!{T<:DispatchNode, S<:DispatchNode}(
     input_map::Associative=Dict{DispatchNode, Any}(),
     throw_error=true
 )
-    graph = DispatchGraph(output_nodes, Set(chain(input_nodes, keys(input_map))))
+    graph = DispatchGraph(output_nodes, collect(chain(input_nodes, keys(input_map))))
 
     if is_cyclic(graph.graph)
         throw(ExecutorError(
@@ -125,6 +125,12 @@ is the preferred pattern.
 Return an array containing a `Result{DispatchNode, DependencyError}` for each leaf node.
 """
 function run!(exec::Executor, graph::DispatchGraph; kwargs...)
+    if is_cyclic(graph.graph)
+        throw(ExecutorError(
+            "Dispatcher can only run graphs without circular dependencies",
+        ))
+    end
+
     return run!(exec, collect(DispatchNode, leaf_nodes(graph)); kwargs...)
 end
 

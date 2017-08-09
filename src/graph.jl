@@ -29,6 +29,9 @@ function DispatchGraph{T<:DispatchNode, S<:DispatchNode}(
 )
     graph = DispatchGraph()
     to_visit = Stack(DispatchNode)
+
+    # this is an ObjectIdDict to avoid a hashing stack overflow when there are cycles
+    visited = ObjectIdDict()
     for node in output_nodes
         push!(graph, node)
         push!(to_visit, node)
@@ -37,7 +40,7 @@ function DispatchGraph{T<:DispatchNode, S<:DispatchNode}(
     while !isempty(to_visit)
         curr = pop!(to_visit)
 
-        if !(curr in input_nodes)
+        if !(curr in keys(visited) || curr in input_nodes)
             dep_nodes = dependencies(curr)
             for dep_node in dep_nodes
                 push!(to_visit, dep_node)
@@ -45,6 +48,8 @@ function DispatchGraph{T<:DispatchNode, S<:DispatchNode}(
                 add_edge!(graph, dep_node, curr)
             end
         end
+
+        visited[curr] = nothing
     end
 
     return graph
