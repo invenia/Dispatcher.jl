@@ -103,7 +103,7 @@ Any arguments to `DispatchNode` constructors (including in `@node` and `@op`) wh
 
 An `Executor` runs a `DispatchContext`.
 This package currently provides two `Executor`s: `AsyncExecutor` and `ParallelExecutor`.
-They work the same way, except `AsyncExecutor` runs nodes using `@async` and `ParallelExecutor` uses `@spawn`.
+They work the same way, except `AsyncExecutor` runs nodes using `@schedule` and `ParallelExecutor` uses `@spawn`.
 
 This call:
 

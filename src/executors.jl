@@ -430,11 +430,11 @@ end
     dispatch!(exec::AsyncExecutor, node::DispatchNode) -> Task
 
 `dispatch!` takes the `AsyncExecutor` and a `DispatchNode` to run.
-The [`run!(::DispatchNode)`](@ref) method on the node is called within an `@async` block and
-the resulting `Task` is returned.
+The [`run!(::DispatchNode)`](@ref) method on the node is called within a `@schedule` block
+and the resulting `Task` is returned.
 This is the defining method of `AsyncExecutor`.
 """
-dispatch!(exec::AsyncExecutor, node::DispatchNode) = @async run!(node)
+dispatch!(exec::AsyncExecutor, node::DispatchNode) = @schedule run!(node)
 
 """
 `ParallelExecutor` is an [`Executor`](@ref) which creates a Julia `Task` for each
