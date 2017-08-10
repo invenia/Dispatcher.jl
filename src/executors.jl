@@ -250,11 +250,6 @@ then we'll see the same failure behaviour as in the previous example.
 function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
     ns = graph.nodes
 
-    """
-        run_inner!(id::Int)
-
-    Run the node in the DispatchGraph at position `id`.
-    """
     function run_inner!(id::Int)
         node = ns[id]
         run_inner_node!(exec, node, id)
@@ -297,12 +292,12 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
     end
 
     """
-        reset_all!(id::Int)
+        reset_node!(id::Int)
 
-    Reset nodes before any are executed to avoid race conditions where a node gets reset
-    after it has been completed.
+    Reset the node identified by `id` in the `DispatchGraph` before any are executed to
+    avoid race conditions where a node gets reset after it has been completed.
     """
-    function reset_all!(id::Int)
+    function reset_node!(id::Int)
         node = ns[id]
 
         if isa(node, Union{Op, IndexNode})
@@ -338,15 +333,15 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
         (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
     end
 
-    f1 = Dispatcher.wrap_on_error(
+    wrapped_reset! = Dispatcher.wrap_on_error(
         Dispatcher.wrap_retry(
-            reset_all!,
+            reset_node!,
             retry_args...,
         ),
         on_error_inner!
     )
 
-    f2 = Dispatcher.wrap_on_error(
+    wrapped_run! = Dispatcher.wrap_on_error(
         Dispatcher.wrap_retry(
             run_inner!,
             retry_args...,
@@ -357,9 +352,11 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
     len = length(graph.nodes)
     info(logger, "Executing $len graph nodes.")
 
-    asyncmap(f1, 1:len; ntasks=div(len * 3, 2))
-    res = asyncmap(f2, 1:len; ntasks=div(len * 3, 2))
+    for id in 1:len
+        wrapped_reset!(id)
+    end
 
+    res = asyncmap(wrapped_run!, 1:len; ntasks=div(len * 3, 2))
     info(logger, "All $len nodes executed.")
 
     return res
@@ -370,6 +367,8 @@ end
 
 Run the `DispatchNode` in the `DispatchGraph` at position `id`. Any error thrown during the
 node's execution is caught and wrapped in a [`DependencyError`](@ref).
+
+Typical [`Executor`](@ref) implementations should not need to override this.
 """
 function run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
     try
