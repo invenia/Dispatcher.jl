@@ -101,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Executors",
     "category": "section",
-    "text": "An Executor runs a DispatchGraph. This package currently provides two Executors: AsyncExecutor and ParallelExecutor. They work the same way, except AsyncExecutor runs nodes using @async and ParallelExecutor uses @spawn.This call:(run_best,) = run!(executor, [best])takes an Executor and a Vector{DispatchNode}, creates a DispatchGraph of those nodes and all of their ancestors, runs it, and returns a collection of DispatchResults (in this case containing only the DispatchResult for best). A DispatchResult is a ResultType containing either a DispatchNode or a DependencyError (an error that occurred when attempting to satisfy the requirements for running that node).It is also possible to feed in inputs in place of nodes in the graph; see run! for more."
+    "text": "An Executor runs a DispatchGraph. This package currently provides two Executors: AsyncExecutor and ParallelExecutor. They work the same way, except AsyncExecutor runs nodes using @schedule and ParallelExecutor uses @spawn.This call:(run_best,) = run!(executor, [best])takes an Executor and a Vector{DispatchNode}, creates a DispatchGraph of those nodes and all of their ancestors, runs it, and returns a collection of DispatchResults (in this case containing only the DispatchResult for best). A DispatchResult is a ResultType containing either a DispatchNode or a DependencyError (an error that occurred when attempting to satisfy the requirements for running that node).It is also possible to feed in inputs in place of nodes in the graph; see run! for more."
 },
 
 {
@@ -709,7 +709,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.dispatch!",
     "category": "Method",
-    "text": "dispatch!(exec::AsyncExecutor, node::DispatchNode) -> Task\n\ndispatch! takes the AsyncExecutor and a DispatchNode to run. The run!(::DispatchNode) method on the node is called within an @async block and the resulting Task is returned. This is the defining method of AsyncExecutor.\n\n\n\n"
+    "text": "dispatch!(exec::AsyncExecutor, node::DispatchNode) -> Task\n\ndispatch! takes the AsyncExecutor and a DispatchNode to run. The run!(::DispatchNode) method on the node is called within a @schedule block and the resulting Task is returned. This is the defining method of AsyncExecutor.\n\n\n\n"
 },
 
 {
