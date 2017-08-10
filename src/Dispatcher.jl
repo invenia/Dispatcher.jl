@@ -9,19 +9,18 @@ else
     asyncmap = Base.asyncmap
 end
 
-export DispatchContext,
-    DispatchGraph,
+export DispatchGraph,
     DispatchNode,
     DispatchResult,
     DataNode,
     IndexNode,
     Op,
     CollectNode,
+    DispatcherError,
     DependencyError,
     add_edge!,
     nodes,
     dependencies,
-    add!,
     has_label,
     get_label,
     set_label!
@@ -33,11 +32,7 @@ export Executor,
     prepare!,
     run!
 
-export @dispatch_context,
-    @op,
-    @node,
-    @component,
-    @include
+export @op
 
 using AutoHashEquals
 using Compat
@@ -54,8 +49,6 @@ const logger = get_logger(current_module())
 
 include("nodes.jl")
 include("graph.jl")
-include("context.jl")
 include("executors.jl")
-include("macros.jl")
 
 end # module

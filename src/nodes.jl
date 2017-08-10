@@ -174,6 +174,40 @@ function Op(func::Base.Callable, args...; kwargs...)
 end
 
 """
+    @op func(...)
+
+The `@op` macro makes it more convenient to construct [`Op`](@ref) nodes. It translates a
+function call into an `Op` call, effectively deferring the computation.
+
+```julia
+a = @op sort(1:10; rev=true)
+```
+is equivalent to
+```julia
+a = Op(sort, 1:10; rev=true)
+```
+"""
+macro op(ex)
+    # parameters expressions only appear when kwargs are separated with a semicolon
+    # parameters expressions must be the second arg in a :call Expr because reasons
+    param_idx = findfirst(ex.args) do arg_ex
+        isa(arg_ex, Expr) && arg_ex.head === :parameters
+    end
+
+    if param_idx > 0
+        ex.args[1:param_idx] = circshift(ex.args[1:param_idx], 1)
+    end
+
+    ex.head = :call
+    ex.args = [
+        Dispatcher.Op,
+        ex.args...
+    ]
+
+    esc(ex)
+end
+
+"""
     show(io::IO, op::Op)
 
 Print a simplified string representation of the `Op` with its DeferredFuture
@@ -319,8 +353,8 @@ It is meant to handle multiple return values from a `DispatchNode`.
 
 Example:
 ```julia
-n1, n2 = add!(ctx, Op(()->divrem(5, 2)))
-run(exec, ctx)
+n1, n2 = Op(() -> divrem(5, 2))
+run!(exec, [n1, n2])
 
 @assert fetch(n1) == 2
 @assert fetch(n2) == 1
@@ -648,7 +682,7 @@ Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 """
 `NodeSet` stores a correspondence between intances of [`DispatchNode`](@ref)s and
 the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
-[`DispatchContext`](@ref).
+[`DispatchGraph`](@ref).
 """
 type NodeSet
     id_dict::Dict{Int, DispatchNode}

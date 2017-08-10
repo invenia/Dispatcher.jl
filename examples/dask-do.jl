@@ -19,24 +19,22 @@ end
 function main()
     data = [1, 2, 3]
 
-    ctx = @dispatch_context begin
-        A = map(data) do i
-            @op slowinc(i)
-        end
-
-        B = map(A) do a
-            @op slowadd(a, 10)
-        end
-
-        C = map(A) do a
-            @op slowadd(a, 100)
-        end
-
-        result = @op ((@op slowsum(A...)) + (@op slowsum(B...)) + (@op slowsum(C...)))
+    A = map(data) do i
+        @op slowinc(i)
     end
 
+    B = map(A) do a
+        @op slowadd(a, 10)
+    end
+
+    C = map(A) do a
+        @op slowadd(a, 100)
+    end
+
+    result = @op ((@op slowsum(A...)) + (@op slowsum(B...)) + (@op slowsum(C...)))
+
     executor = AsyncExecutor()
-    (run_result,) = run!(executor, ctx, [result])
+    (run_result,) = run!(executor, [result])
 
     return run_result
 end
