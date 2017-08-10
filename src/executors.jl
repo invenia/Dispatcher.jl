@@ -250,45 +250,14 @@ then we'll see the same failure behaviour as in the previous example.
 function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
     ns = graph.nodes
 
+    """
+        run_inner!(id::Int)
+
+    Run the node in the DispatchGraph at position `id`.
+    """
     function run_inner!(id::Int)
         node = ns[id]
-
-        try
-            desc = summary(node)
-            info(logger, "Node $id ($desc): running.")
-
-            if isa(node, Union{Op, IndexNode})
-                reset!(ns[id].result)
-            end
-
-            cond = dispatch!(exec, node)
-            debug(logger, "Waiting on $cond")
-            wait(cond)
-            info(logger, "Node $id ($desc): complete.")
-        catch err
-            debug(logger, "Node $id: errored with $err)")
-
-            dep_err = if isa(err, RemoteException)
-                DependencyError(
-                    err.captured.ex, err.captured.processed_bt, id
-                )
-            else
-                # Necessary because of a bug with empty stacktraces
-                # in base, but will be fixed in 0.6
-                # see https://github.com/JuliaLang/julia/issues/19655
-                trace = try
-                    catch_stacktrace()
-                catch
-                    StackFrame[]
-                end
-
-                DependencyError(err, trace, id)
-            end
-
-            debug(logger, "Node $id: throwing $dep_err)")
-            throw(dep_err)
-        end
-
+        run_inner_node!(exec, node, id)
         return ns[id]
     end
 
@@ -327,6 +296,20 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
         return err
     end
 
+    """
+        reset_all!(id::Int)
+
+    Reset nodes before any are executed to avoid race conditions where a node gets reset
+    after it has been completed.
+    """
+    function reset_all!(id::Int)
+        node = ns[id]
+
+        if isa(node, Union{Op, IndexNode})
+            reset!(ns[id].result)
+        end
+    end
+
     #=
     This is necessary because the base pmap call is broken.
     Specifically, if you call `pmap(...; distributed=false)` when
@@ -355,8 +338,16 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
         (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
     end
 
-    f = wrap_on_error(
-        wrap_retry(
+    f1 = Dispatcher.wrap_on_error(
+        Dispatcher.wrap_retry(
+            reset_all!,
+            retry_args...,
+        ),
+        on_error_inner!
+    )
+
+    f2 = Dispatcher.wrap_on_error(
+        Dispatcher.wrap_retry(
             run_inner!,
             retry_args...,
         ),
@@ -365,10 +356,53 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
 
     len = length(graph.nodes)
     info(logger, "Executing $len graph nodes.")
-    res = asyncmap(f, 1:len; ntasks=div(len * 3, 2))
+
+    asyncmap(f1, 1:len; ntasks=div(len * 3, 2))
+    res = asyncmap(f2, 1:len; ntasks=div(len * 3, 2))
+
     info(logger, "All $len nodes executed.")
 
     return res
+end
+
+"""
+    run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
+
+Run the `DispatchNode` in the `DispatchGraph` at position `id`. Any error thrown during the
+node's execution is caught and wrapped in a [`DependencyError`](@ref).
+"""
+function run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
+    try
+        desc = summary(node)
+        info(logger, "Node $id ($desc): running.")
+
+        cond = dispatch!(exec, node)
+        debug(logger, "Waiting on $cond")
+        wait(cond)
+        info(logger, "Node $id ($desc): complete.")
+    catch err
+        debug(logger, "Node $id: errored with $err)")
+
+        dep_err = if isa(err, RemoteException)
+            DependencyError(
+                err.captured.ex, err.captured.processed_bt, id
+            )
+        else
+            # Necessary because of a bug with empty stacktraces
+            # in base, but will be fixed in 0.6
+            # see https://github.com/JuliaLang/julia/issues/19655
+            trace = try
+                catch_stacktrace()
+            catch
+                StackFrame[]
+            end
+
+            DependencyError(err, trace, id)
+        end
+
+        debug(logger, "Node $id: throwing $dep_err)")
+        throw(dep_err)
+    end
 end
 
 """

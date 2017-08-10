@@ -97,6 +97,7 @@ run!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, 
 run!(::Executor, ::DispatchGraph)
 prepare!(::Executor, ::DispatchGraph)
 dispatch!(::Executor, ::DispatchGraph)
+Dispatcher.run_inner_node!(::Executor, ::DispatchNode, ::Int)
 Dispatcher.retries(::Executor)
 Dispatcher.retry_on(::Executor)
 ```
