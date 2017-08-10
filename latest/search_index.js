@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Overview",
     "category": "section",
-    "text": "Using Dispatcher, a DispatchContext maintains a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor executes a whole DispatchContext. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn)."
+    "text": "Using Dispatcher, run! builds and runs a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor executes a whole DispatchGraph. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn)."
 },
 
 {
@@ -29,7 +29,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Frequently Asked Questions",
     "category": "section",
-    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.Isn't this just DaskPretty much. The plan is to implement another Executor and integrate with the dask.distributed scheduler service to piggyback off of their great work.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
+    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.Isn't this just Dask?Pretty much. The plan is to implement another Executor and integrate with the dask.distributed scheduler service to piggyback off of their great work.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
 },
 
 {
@@ -77,7 +77,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Overview",
     "category": "section",
-    "text": "Using Dispatcher, a DispatchContext maintains a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor executes a whole DispatchContext. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn).Here is an example defining and executing a graph:ctx = @dispatch_context begin\n    filenames = [\"mydata-$d.dat\" for d in 1:100]\n    data = [(@op load(filename)) for filename in filenames]\n\n    reference = @op load_from_sql(\"sql://mytable\")\n    processed = [(@op process(d, reference)) for d in data]\n\n    rolled = map(1:(length(processed) - 2)) do i\n        a = processed[i]\n        b = processed[i + 1]\n        c = processed[i + 2]\n        roll_result = @op roll(a, b, c)\n        return roll_result\n    end\n\n    compared = map(1:200) do i\n        a = rand(rolled)\n        b = rand(rolled)\n        compare_result = @op compare(a, b)\n        return compare_result\n    end\n\n    best = @op reduction(@node CollectNode(compared))\nend\n\nexecutor = ParallelExecutor()\n(run_best,) = run!(executor, ctx, [best])The components of this example will be discussed below. This example is based on a Dask example."
+    "text": "Using Dispatcher, run! builds and runs a computation graph of DispatchNodes. DispatchNodes represent units of computation that can be run. The most common DispatchNode is Op, which represents a function call on some arguments. Some of those arguments may exist when building the graph, and others may represent the results of other DispatchNodes. An Executor builds and executes a whole DispatchGraph. Two Executors are provided. AsyncExecutor executes computations asynchronously using Julia Tasks. ParallelExecutor executes computations in parallel using all available Julia processes (by calling @spawn).Here is an example defining and executing a graph:filenames = [\"mydata-$d.dat\" for d in 1:100]\ndata = [(@op load(filename)) for filename in filenames]\n\nreference = @op load_from_sql(\"sql://mytable\")\nprocessed = [(@op process(d, reference)) for d in data]\n\nrolled = map(1:(length(processed) - 2)) do i\n    a = processed[i]\n    b = processed[i + 1]\n    c = processed[i + 2]\n    roll_result = @op roll(a, b, c)\n    return roll_result\nend\n\ncompared = map(1:200) do i\n    a = rand(rolled)\n    b = rand(rolled)\n    compare_result = @op compare(a, b)\n    return compare_result\nend\n\nbest = @op reduction(CollectNode(compared))\n\nexecutor = ParallelExecutor()\n(run_best,) = run!(executor, [best])The components of this example will be discussed below. This example is based on a Dask example."
 },
 
 {
@@ -85,7 +85,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Dispatch Nodes",
     "category": "section",
-    "text": "A DispatchNode generally represents a unit of computation that can be run. DispatchNodes are constructed when defining the graph and are run as part of graph execution. The @node macro takes a DispatchNode instance and adds it to the graph in the current context. The following code, where CollectNode <: DispatchNode:collection = @node CollectNode(compared)is equivalent to:collection = add!(ctx, CollectNode(compared))where ctx is the current dispatch context."
+    "text": "A DispatchNode generally represents a unit of computation that can be run. DispatchNodes are constructed when defining the graph and are run as part of graph execution. CollectNode from the above example is a subtype of DispatchNode.Any arguments to DispatchNode constructors (including in @op) which are DispatchNodes are recorded as dependencies in the graph."
 },
 
 {
@@ -93,15 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Op",
     "category": "section",
-    "text": "An Op is a DispatchNode which represents some function call to be run as part of graph execution. This is the most common type of DispatchNode. The @op applies an extra transformation on top of the @node macro and deconstructs a function call to add to the graph. The following code:roll_result = @op roll(a, b, c)is equivalent to:roll_result = add!(ctx, Op(roll, a, b, c))where ctx is the current dispatch context. Note that code in the argument list gets evaluated immediately; only the function call is delayed."
-},
-
-{
-    "location": "pages/manual.html#Dispatch-Context-and-Dispatch-Graph-1",
-    "page": "Manual",
-    "title": "Dispatch Context and Dispatch Graph",
-    "category": "section",
-    "text": "The above macros add nodes to a DispatchContext. The DispatchContext contains a DispatchGraph, which stores nodes and dependencies in a graph. Any arguments to DispatchNode constructors (including in @node and @op) which are DispatchNodes are recorded as dependencies in the graph."
+    "text": "An Op is a DispatchNode which represents some function call to be run as part of graph execution. This is the most common type of DispatchNode. The @op macro deconstructs a function call to construct an Op. The following code:roll_result = @op roll(a, b, c)is equivalent to:roll_result = Op(roll, a, b, c)Note that code in the argument list gets evaluated immediately; only the function call is delayed."
 },
 
 {
@@ -109,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Manual",
     "title": "Executors",
     "category": "section",
-    "text": "An Executor runs a DispatchContext. This package currently provides two Executors: AsyncExecutor and ParallelExecutor. They work the same way, except AsyncExecutor runs nodes using @async and ParallelExecutor uses @spawn.This call:(run_best,) = run!(executor, ctx, [best])takes an Executor, a DispatchContext, and a Vector{DispatchNode}, runs those nodes and all of their ancestors, and returns a collection of DispatchResults (in this case containing only the DispatchResult for best). A DispatchResult is a ResultType containing either a DispatchNode or a DependencyError (an error that occurred when attempting to satisfy the requirements for running that node).It is also possible to feed in inputs in place of nodes in the graph; see run! for more."
+    "text": "An Executor runs a DispatchGraph. This package currently provides two Executors: AsyncExecutor and ParallelExecutor. They work the same way, except AsyncExecutor runs nodes using @async and ParallelExecutor uses @spawn.This call:(run_best,) = run!(executor, [best])takes an Executor and a Vector{DispatchNode}, creates a DispatchGraph of those nodes and all of their ancestors, runs it, and returns a collection of DispatchResults (in this case containing only the DispatchResult for best). A DispatchResult is a ResultType containing either a DispatchNode or a DependencyError (an error that occurred when attempting to satisfy the requirements for running that node).It is also possible to feed in inputs in place of nodes in the graph; see run! for more."
 },
 
 {
@@ -249,6 +241,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "pages/api.html#Dispatcher.@op",
+    "page": "API",
+    "title": "Dispatcher.@op",
+    "category": "Macro",
+    "text": "@op func(...)\n\nThe @op macro makes it more convenient to construct Op nodes. It translates a function call into an Op call, effectively deferring the computation.\n\na = @op sort(1:10; rev=true)\n\nis equivalent to\n\na = Op(sort, 1:10; rev=true)\n\n\n\n"
+},
+
+{
     "location": "pages/api.html#Dispatcher.get_label-Tuple{Dispatcher.Op}",
     "page": "API",
     "title": "Dispatcher.get_label",
@@ -333,7 +333,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Op",
     "category": "section",
-    "text": "Op\nOp(::Function)\nget_label(::Op)\nset_label!(::Op, ::AbstractString)\nhas_label(::Op)\ndependencies(::Op)\nprepare!(::Op)\nrun!(::Op)\nisready(::Op)\nwait(::Op)\nfetch(::Op)\nsummary(::Op)"
+    "text": "Op\nOp(::Function)\n@op\nget_label(::Op)\nset_label!(::Op, ::AbstractString)\nhas_label(::Op)\ndependencies(::Op)\nprepare!(::Op)\nrun!(::Op)\nisready(::Op)\nwait(::Op)\nfetch(::Op)\nsummary(::Op)"
 },
 
 {
@@ -365,7 +365,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.IndexNode",
     "category": "Type",
-    "text": "An IndexNode refers to an element of the return value of a DispatchNode. It is meant to handle multiple return values from a DispatchNode.\n\nExample:\n\nn1, n2 = add!(ctx, Op(()->divrem(5, 2)))\nrun(exec, ctx)\n\n@assert fetch(n1) == 2\n@assert fetch(n2) == 1\n\nIn this example, n1 and n2 are created as IndexNodes pointing to the Op at index 1 and index 2 respectively.\n\n\n\n"
+    "text": "An IndexNode refers to an element of the return value of a DispatchNode. It is meant to handle multiple return values from a DispatchNode.\n\nExample:\n\nn1, n2 = Op(() -> divrem(5, 2))\nrun!(exec, [n1, n2])\n\n@assert fetch(n1) == 2\n@assert fetch(n2) == 1\n\nIn this example, n1 and n2 are created as IndexNodes pointing to the Op at index 1 and index 2 respectively.\n\n\n\n"
 },
 
 {
@@ -617,94 +617,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Context-1",
-    "page": "API",
-    "title": "Context",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "pages/api.html#Dispatcher.DispatchContext",
-    "page": "API",
-    "title": "Dispatcher.DispatchContext",
-    "category": "Type",
-    "text": "DispatchContext holds the computation graph and arbitrary key-value pairs of metadata.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.nodes-Tuple{Dispatcher.DispatchContext}",
-    "page": "API",
-    "title": "Dispatcher.nodes",
-    "category": "Method",
-    "text": "nodes(ctx::DispatchContext)\n\nReturn an iterable of all nodes stored in the DispatchContext's graph.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.add!",
-    "page": "API",
-    "title": "Dispatcher.add!",
-    "category": "Function",
-    "text": "add!(ctx::DispatchContext, node::DispatchNode) -> DispatchNode\n\nAdd a DispatchNode to the DispatchContext's graph and record its dependencies in the graph.\n\nReturn the DispatchNode which was added.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#DispatchContext-1",
-    "page": "API",
-    "title": "DispatchContext",
-    "category": "section",
-    "text": "DispatchContext\nnodes(::DispatchContext)\nadd!"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.@dispatch_context",
-    "page": "API",
-    "title": "Dispatcher.@dispatch_context",
-    "category": "Macro",
-    "text": "@dispatch_context begin ... end\n\nAnonymously create and return a DispatchContext. Accepts a block argument and causes all @op and @node macros within that block to use said DispatchContext.\n\nSee examples in the Manual.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.@node",
-    "page": "API",
-    "title": "Dispatcher.@node",
-    "category": "Macro",
-    "text": "@node Node(...)\n\nThe @node macro makes it more convenient to add nodes to the computation graph while in a @dispatch_context block.\n\na = @node DataNode([1, 3, 5])\n\nis equivalent to\n\na = add!(ctx, DataNode([1, 3, 5]))\n\nwhere ctx is a variable created by the surrounding @dispatch_context.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.@op",
-    "page": "API",
-    "title": "Dispatcher.@op",
-    "category": "Macro",
-    "text": "@op func(...)\n\nThe @op macro makes it more convenient to add Op nodes to the computation graph while in a @dispatch_context block. It translates a function call into an Op call, effectively deferring the computation.\n\na = @op sort(1:10; rev=true)\n\nis equivalent to\n\na = add!(ctx, Op(sort, 1:10; rev=true))\n\nwhere ctx is a variable created by the surrounding @dispatch_context.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.@component",
-    "page": "API",
-    "title": "Dispatcher.@component",
-    "category": "Macro",
-    "text": "@component function ... end\n\nTranslate a function definition so that its first argument is a DispatchContext and cause all @op and @node macros within the function to use said DispatchContext.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Dispatcher.@include",
-    "page": "API",
-    "title": "Dispatcher.@include",
-    "category": "Macro",
-    "text": "@include component_function(...)\n\nThe @include macro makes it more convenient to splice component subgraphs into the computation graph while in a @dispatch_context block.\n\na = @include sort(1:10; rev=true)\n\nis equivalent to\n\na = sort(ctx, 1:10; rev=true)\n\nwhere ctx is a variable created by the surrounding @dispatch_context.\n\nUsually, these component functions are created using a @component annotation.\n\n\n\n"
-},
-
-{
-    "location": "pages/api.html#Macros-1",
-    "page": "API",
-    "title": "Macros",
-    "category": "section",
-    "text": "@dispatch_context\n@node\n@op\n@component\n@include"
-},
-
-{
     "location": "pages/api.html#Executors-1",
     "page": "API",
     "title": "Executors",
@@ -717,39 +629,39 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.Executor",
     "category": "Type",
-    "text": "An Executor handles execution of DispatchContexts.\n\nA type T <: Executor must implement dispatch!(::T, ::DispatchNode) and may optionally implement dispatch!(::T, ::DispatchContext; throw_error=true).\n\nThe function call tree will look like this when an executor is run:\n\nrun!(exec, context)\n    prepare!(exec, context)\n        prepare!(nodes[i])\n    dispatch!(exec, context)\n        dispatch!(exec, nodes[i])\n            run!(nodes[i])\n\nNOTE: Currently, it is expected that dispatch!(::T, ::DispatchNode) returns something to wait on (ie: Task, Future, Channel, DispatchNode, etc)\n\n\n\n"
+    "text": "An Executor handles execution of DispatchGraphs.\n\nA type T <: Executor must implement dispatch!(::T, ::DispatchNode) and may optionally implement dispatch!(::T, ::DispatchGraph; throw_error=true).\n\nThe function call tree will look like this when an executor is run:\n\nrun!(exec, context)\n    prepare!(exec, context)\n        prepare!(nodes[i])\n    dispatch!(exec, context)\n        dispatch!(exec, nodes[i])\n            run!(nodes[i])\n\nNOTE: Currently, it is expected that dispatch!(::T, ::DispatchNode) returns something to wait on (ie: Task, Future, Channel, DispatchNode, etc)\n\n\n\n"
 },
 
 {
-    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.Executor,Dispatcher.DispatchContext,AbstractArray{T<:Dispatcher.DispatchNode,N},AbstractArray{S<:Dispatcher.DispatchNode,N}}",
+    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.Executor,AbstractArray{T<:Dispatcher.DispatchNode,N},AbstractArray{S<:Dispatcher.DispatchNode,N}}",
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(exec, ctx, nodes, input_nodes; input_map, throw_error) -> DispatchResult\n\nRun a subset of a graph, ending in nodes, and using input_nodes/input_map to replace nodes with fixed values (and ignoring nodes for which all paths descend to input_nodes).\n\nArguments\n\nexec::Executor: the executor which will execute this context\nctx::DispatchContext: the context which will be executed\nnodes::AbstractArray{T<:DispatchNode}: the nodes whose results we are interested in\ninput_nodes::AbstractArray{T<:DispatchNode}: \"root\" nodes of the subgraph which will be replaced with their fetched values\n\nKeyword Arguments\n\ninput_map::Associative=Dict{DispatchNode, Any}(): dict keys are \"root\" nodes of the subgraph which will be replaced with the dict values\nthrow_error::Bool: whether to throw any DependencyErrors immediately (see dispatch!(::Executor, ::DispatchContext) for more information)\n\nReturns\n\nVector{DispatchResult}: an array containing a DispatchResult for each node in nodes, in that order.\n\nThrows\n\nExecutorError: if the context's graph contains a cycle\nCompositeException/DependencyError: see documentation for dispatch!(::Executor, ::DispatchContext)\n\n\n\n"
+    "text": "run!(exec, output_nodes, input_nodes; input_map, throw_error) -> DispatchResult\n\nCreate a graph, ending in output_nodes, and using input_nodes/input_map to replace nodes with fixed values (and ignoring nodes for which all paths descend to input_nodes), then execute it.\n\nArguments\n\nexec::Executor: the executor which will execute the graph\ngraph::DispatchGraph: the graph which will be executed\noutput_nodes::AbstractArray{T<:DispatchNode}: the nodes whose results we are interested in\ninput_nodes::AbstractArray{T<:DispatchNode}: \"root\" nodes of the graph which will be replaced with their fetched values (dependencies of these nodes are not included in the graph)\n\nKeyword Arguments\n\ninput_map::Associative=Dict{DispatchNode, Any}(): dict keys are \"root\" nodes of the subgraph which will be replaced with the dict values (dependencies of these nodes are not included in the graph)\nthrow_error::Bool: whether to throw any DependencyErrors immediately (see dispatch!(::Executor, ::DispatchGraph) for more information)\n\nReturns\n\nVector{DispatchResult}: an array containing a DispatchResult for each node in output_nodes, in that order.\n\nThrows\n\nExecutorError: if the constructed graph contains a cycle\nCompositeException/DependencyError: see documentation for dispatch!(::Executor, ::DispatchGraph)\n\n\n\n"
 },
 
 {
-    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.Executor,Dispatcher.DispatchContext}",
+    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.Executor,Dispatcher.DispatchGraph}",
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(exec::Executor, ctx::DispatchContext; kwargs...)\n\nThe run! function prepares a DispatchContext for dispatch and then dispatches run!(::DispatchNode) calls for all nodes in its graph.\n\nUsers will almost never want to add methods to this function for different Executor subtypes; overriding dispatch!(::Executor, ::DispatchContext) is the preferred pattern.\n\nReturn an array containing a Result{DispatchNode, DependencyError} for each leaf node.\n\n\n\n"
+    "text": "run!(exec::Executor, graph::DispatchGraph; kwargs...)\n\nThe run! function prepares a DispatchGraph for dispatch and then dispatches run!(::DispatchNode) calls for all nodes in its graph.\n\nUsers will almost never want to add methods to this function for different Executor subtypes; overriding dispatch!(::Executor, ::DispatchGraph) is the preferred pattern.\n\nReturn an array containing a Result{DispatchNode, DependencyError} for each leaf node.\n\n\n\n"
 },
 
 {
-    "location": "pages/api.html#Dispatcher.prepare!-Tuple{Dispatcher.Executor,Dispatcher.DispatchContext}",
+    "location": "pages/api.html#Dispatcher.prepare!-Tuple{Dispatcher.Executor,Dispatcher.DispatchGraph}",
     "page": "API",
     "title": "Dispatcher.prepare!",
     "category": "Method",
-    "text": "prepare!(exec::Executor, ctx::DispatchContext)\n\nThis function prepares a context for execution. Call prepare!(::DispatchNode) on each node.\n\n\n\n"
+    "text": "prepare!(exec::Executor, graph::DispatchGraph)\n\nThis function prepares a context for execution. Call prepare!(::DispatchNode) on each node.\n\n\n\n"
 },
 
 {
-    "location": "pages/api.html#Dispatcher.dispatch!-Tuple{Dispatcher.Executor,Dispatcher.DispatchContext}",
+    "location": "pages/api.html#Dispatcher.dispatch!-Tuple{Dispatcher.Executor,Dispatcher.DispatchGraph}",
     "page": "API",
     "title": "Dispatcher.dispatch!",
     "category": "Method",
-    "text": "dispatch!(exec::Executor, ctx::DispatchContext; throw_error=true) -> Vector\n\nThe default dispatch! method uses asyncmap over all nodes in the context to call dispatch!(exec, node). These dispatch! calls for each node are wrapped in various retry and error handling methods.\n\nWrapping Details\n\nAll nodes are wrapped in a try catch which waits on the value returned from the dispatch!(exec, node) call. Any errors are caught and used to create DependencyErrors which are thrown. If no errors are produced then the node is returned.\nNOTE: All errors thrown by trying to run dispatch!(exec, node) are wrapped in a DependencyError.\nThe aformentioned wrapper function is used in a retry wrapper to rerun failed nodes (up to some limit). The wrapped function will only be retried iff the error produced by dispatch!(::Executor, ::DispatchNode) passes one of the retry functions specific to that Executor. By default the AsyncExecutor has no retry_on functions and the ParallelExecutor only has retry_on functions related to the loss of a worker process during execution.\nA node may enter a failed state if it exits the retry wrapper with an exception. This may occur if an exception is thrown while executing a node and it does not pass any of the retry_on conditions for the Executor or too many attempts to run the node have been made. In the situation where a node has entered a failed state and the node is an Op then the op.result is set to the DependencyError, signifying the node's failure to any dependent nodes. Finally, if throw_error is true then the DependencyError will be immediately thrown in the current process without allowing other nodes to finish. If throw_error is false then the DependencyError is not thrown and it will be returned in the array of passing and failing nodes.\n\nArguments\n\nexec::Executor: the executor we're running\nctx::DispatchContext: the context of nodes to run\n\nKeyword Arguments\n\nthrow_error::Bool=true: whether or not to throw the DependencyError for failed nodes\n\nReturns\n\nVector{Union{DispatchNode, DependencyError}}: a list of DispatchNodes or DependencyErrors for failed nodes\n\nThrows\n\ndispatch! has the same behaviour on exceptions as asyncmap and pmap. In 0.5 this will throw a CompositeException containing DependencyErrors, while in 0.6 this will simply throw the first DependencyError.\n\nUsage\n\nExample 1\n\nAssuming we have some uncaught application error:\n\nexec = AsyncExecutor()\nctx = DispatchContext()\nn1 = add!(ctx, Op()->3)\nn2 = add!(ctx, Op()->4)\nfailing_node = add!(ctx, Op(()->throw(ErrorException(\"ApplicationError\"))))\ndep_node = add!(n -> println(n), failing_node)  # This will fail as well\n\nThen dispatch!(exec, ctx) will throw a DependencyError and dispatch!(exec, ctx; throw_error=false) will return an array of passing nodes and the DependencyErrors (ie: [n1, n2, DependencyError(...), DependencyError(...)]).\n\nExample 2\n\nNow if we want to retry our node on certain errors we can do:\n\nexec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == \"503\"])\nctx = DispatchContext()\nn1 = add!(ctx, Op()->3)\nn2 = add!(ctx, Op()->4)\nhttp_node = add!(ctx, Op(()->http_get(...)))\n\nAssuming that the http_get function does not error 5 times the call to dispatch!(exec, ctx) will return [n1, n2, http_node]. If the http_get function either:\n\nfails with a different status code\nfails with something other than an HttpError or\nthrows an HttpError with status \"503\" more than 5 times\n\nthen we'll see the same failure behaviour as in the previous example.\n\n\n\n"
+    "text": "dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true) -> Vector\n\nThe default dispatch! method uses asyncmap over all nodes in the context to call dispatch!(exec, node). These dispatch! calls for each node are wrapped in various retry and error handling methods.\n\nWrapping Details\n\nAll nodes are wrapped in a try catch which waits on the value returned from the dispatch!(exec, node) call. Any errors are caught and used to create DependencyErrors which are thrown. If no errors are produced then the node is returned.\nNOTE: All errors thrown by trying to run dispatch!(exec, node) are wrapped in a DependencyError.\nThe aformentioned wrapper function is used in a retry wrapper to rerun failed nodes (up to some limit). The wrapped function will only be retried iff the error produced by dispatch!(::Executor, ::DispatchNode) passes one of the retry functions specific to that Executor. By default the AsyncExecutor has no retry_on functions and the ParallelExecutor only has retry_on functions related to the loss of a worker process during execution.\nA node may enter a failed state if it exits the retry wrapper with an exception. This may occur if an exception is thrown while executing a node and it does not pass any of the retry_on conditions for the Executor or too many attempts to run the node have been made. In the situation where a node has entered a failed state and the node is an Op then the op.result is set to the DependencyError, signifying the node's failure to any dependent nodes. Finally, if throw_error is true then the DependencyError will be immediately thrown in the current process without allowing other nodes to finish. If throw_error is false then the DependencyError is not thrown and it will be returned in the array of passing and failing nodes.\n\nArguments\n\nexec::Executor: the executor we're running\ngraph::DispatchGraph: the context of nodes to run\n\nKeyword Arguments\n\nthrow_error::Bool=true: whether or not to throw the DependencyError for failed nodes\n\nReturns\n\nVector{Union{DispatchNode, DependencyError}}: a list of DispatchNodes or DependencyErrors for failed nodes\n\nThrows\n\ndispatch! has the same behaviour on exceptions as asyncmap and pmap. In 0.5 this will throw a CompositeException containing DependencyErrors, while in 0.6 this will simply throw the first DependencyError.\n\nUsage\n\nExample 1\n\nAssuming we have some uncaught application error:\n\nexec = AsyncExecutor()\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nfailing_node = Op(() -> throw(ErrorException(\"ApplicationError\")))\ndep_node = Op(n -> println(n), failing_node)  # This node will fail as well\ngraph = DispatchGraph([n1, n2, failing_node, dep_node])\n\nThen dispatch!(exec, graph) will throw a DependencyError and dispatch!(exec, graph; throw_error=false) will return an array of passing nodes and the DependencyErrors (ie: [n1, n2, DependencyError(...), DependencyError(...)]).\n\nExample 2\n\nNow if we want to retry our node on certain errors we can do:\n\nexec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == \"503\"])\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nhttp_node = Op(() -> http_get(...))\ngraph = DispatchGraph([n1, n2, http_node])\n\nAssuming that the http_get function does not error 5 times the call to dispatch!(exec, graph) will return [n1, n2, http_node]. If the http_get function either:\n\nfails with a different status code\nfails with something other than an HttpError or\nthrows an HttpError with status \"503\" more than 5 times\n\nthen we'll see the same failure behaviour as in the previous example.\n\n\n\n"
 },
 
 {
@@ -773,7 +685,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Executor",
     "category": "section",
-    "text": "Executor\nrun!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, ctx::DispatchContext, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})\nrun!(::Executor, ::DispatchContext)\nprepare!(::Executor, ::DispatchContext)\ndispatch!(::Executor, ::DispatchContext)\nDispatcher.retries(::Executor)\nDispatcher.retry_on(::Executor)"
+    "text": "Executor\nrun!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})\nrun!(::Executor, ::DispatchGraph)\nprepare!(::Executor, ::DispatchGraph)\ndispatch!(::Executor, ::DispatchGraph)\nDispatcher.retries(::Executor)\nDispatcher.retry_on(::Executor)"
 },
 
 {
@@ -829,7 +741,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.ParallelExecutor",
     "category": "Type",
-    "text": "ParallelExecutor is an Executor which creates a Julia Task for each DispatchNode, spawns each of those tasks on the processes available to Julia, and waits for them to complete. ParallelExecutor's dispatch!(::ParallelExecutor, ::DispatchContext) method will complete as long as each DispatchNode's run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\nParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor\n\nretries is the number of times the executor is to retry a failed node. retry_on is a vector of predicates which accept an Exception and return true if a node can and should be retried (and false otherwise). Returns a new ParallelExecutor.\n\n\n\n"
+    "text": "ParallelExecutor is an Executor which creates a Julia Task for each DispatchNode, spawns each of those tasks on the processes available to Julia, and waits for them to complete. ParallelExecutor's dispatch!(::ParallelExecutor, ::DispatchGraph) method will complete as long as each DispatchNode's run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\nParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor\n\nretries is the number of times the executor is to retry a failed node. retry_on is a vector of predicates which accept an Exception and return true if a node can and should be retried (and false otherwise). Returns a new ParallelExecutor.\n\n\n\n"
 },
 
 {
