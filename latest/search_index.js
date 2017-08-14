@@ -665,6 +665,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "pages/api.html#Dispatcher.run_inner_node!-Tuple{Dispatcher.Executor,Dispatcher.DispatchNode,Int64}",
+    "page": "API",
+    "title": "Dispatcher.run_inner_node!",
+    "category": "Method",
+    "text": "run_inner_node!(exec::Executor, node::DispatchNode, id::Int)\n\nRun the DispatchNode in the DispatchGraph at position id. Any error thrown during the node's execution is caught and wrapped in a DependencyError.\n\nTypical Executor implementations should not need to override this.\n\n\n\n"
+},
+
+{
     "location": "pages/api.html#Dispatcher.retries-Tuple{Dispatcher.Executor}",
     "page": "API",
     "title": "Dispatcher.retries",
@@ -685,7 +693,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Executor",
     "category": "section",
-    "text": "Executor\nrun!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})\nrun!(::Executor, ::DispatchGraph)\nprepare!(::Executor, ::DispatchGraph)\ndispatch!(::Executor, ::DispatchGraph)\nDispatcher.retries(::Executor)\nDispatcher.retry_on(::Executor)"
+    "text": "Executor\nrun!{T<:DispatchNode, S<:DispatchNode}(exec::Executor, nodes::AbstractArray{T}, input_nodes::AbstractArray{S})\nrun!(::Executor, ::DispatchGraph)\nprepare!(::Executor, ::DispatchGraph)\ndispatch!(::Executor, ::DispatchGraph)\nDispatcher.run_inner_node!(::Executor, ::DispatchNode, ::Int)\nDispatcher.retries(::Executor)\nDispatcher.retry_on(::Executor)"
 },
 
 {
