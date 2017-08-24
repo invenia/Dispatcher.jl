@@ -22,7 +22,7 @@ module OtherModule
 
 export MyType
 
-type MyType
+mutable struct MyType
     x
 end
 

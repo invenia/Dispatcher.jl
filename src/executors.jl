@@ -1,10 +1,4 @@
-if VERSION >= v"0.6.0-dev.2830"
-    import Base.Distributed: wrap_on_error, wrap_retry
-elseif VERSION >= v"0.6.0-dev.2603"
-    import Base.Parallel: wrap_on_error, wrap_retry
-else
-    import Base: wrap_on_error, wrap_retry
-end
+import Base.Distributed: wrap_on_error, wrap_retry
 
 """
 An `Executor` handles execution of [`DispatchGraph`](@ref)s.
@@ -25,9 +19,9 @@ run!(exec, context)
 NOTE: Currently, it is expected that `dispatch!(::T, ::DispatchNode)` returns
 something to wait on (ie: `Task`, `Future`, `Channel`, [`DispatchNode`](@ref), etc)
 """
-@compat abstract type Executor end
+abstract type Executor end
 
-immutable ExecutorError{T} <: DispatcherError
+struct ExecutorError{T} <: DispatcherError
     msg::T
 end
 
@@ -84,13 +78,13 @@ replace nodes with fixed values (and ignoring nodes for which all paths descend 
 * `CompositeException`/[`DependencyError`](@ref): see documentation for
   [`dispatch!(::Executor, ::DispatchGraph)`](@ref)
 """
-function run!{T<:DispatchNode, S<:DispatchNode}(
+function run!(
     exec::Executor,
     output_nodes::AbstractArray{T},
     input_nodes::AbstractArray{S}=DispatchNode[];
     input_map::Associative=Dict{DispatchNode, Any}(),
     throw_error=true
-)
+) where {T<:DispatchNode, S<:DispatchNode}
     graph = DispatchGraph(output_nodes, collect(chain(input_nodes, keys(input_map))))
 
     if is_cyclic(graph.graph)
@@ -327,11 +321,7 @@ function dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true)
     for more details.
     ```
     =#
-    retry_args = @static if VERSION < v"0.6.0-dev.2042"
-        (allow_retry(retry_on(exec)), retries(exec), Base.DEFAULT_RETRY_MAX_DELAY)
-    else
-        (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
-    end
+    retry_args = (ExponentialBackOff(; n=retries(exec)), allow_retry(retry_on(exec)))
 
     wrapped_reset! = Dispatcher.wrap_on_error(
         Dispatcher.wrap_retry(
@@ -411,7 +401,7 @@ end
 as long as each `DispatchNode`'s [`run!(::DispatchNode)`](@ref) method completes and there
 are no cycles in the computation graph.
 """
-type AsyncExecutor <: Executor
+mutable struct AsyncExecutor <: Executor
     retries::Int
     retry_on::Vector{Function}
 end
@@ -454,7 +444,7 @@ and there are no cycles in the computation graph.
 node can and should be retried (and `false` otherwise).
 Returns a new `ParallelExecutor`.
 """
-type ParallelExecutor <: Executor
+mutable struct ParallelExecutor <: Executor
     retries::Int
     retry_on::Vector{Function}
 
@@ -532,9 +522,5 @@ function allow_retry(conditions::Vector{Function})
         return ret
     end
 
-    @static if VERSION < v"0.6.0-dev.2042"
-        return inner_allow_retry
-    else
-        return (state, e) -> (state, inner_allow_retry(e))
-    end
+    return (state, e) -> (state, inner_allow_retry(e))
 end

@@ -3,7 +3,7 @@
 dictionary mapping between `DispatchNode` instances and vertex numbers in the
 graph.
 """
-type DispatchGraph
+mutable struct DispatchGraph
     graph::DiGraph  # from LightGraphs
     nodes::NodeSet
 end
@@ -23,10 +23,10 @@ The graph is created by recursively identifying dependencies of nodes starting w
 `output_nodes` and ending with `input_nodes` (dependencies of `input_nodes` are not added to
 the graph).
 """
-function DispatchGraph{T<:DispatchNode, S<:DispatchNode}(
+function DispatchGraph(
     output_nodes::AbstractArray{T},
     input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
-)
+) where {T<:DispatchNode, S<:DispatchNode}
     graph = DispatchGraph()
     to_visit = Stack(DispatchNode)
 
@@ -204,11 +204,11 @@ nodes which are ancestors of `endpoints` only through `roots`.
 If `endpoints` is empty, return a new `DispatchGraph` containing only `roots`, and nodes
 which are decendents from nodes which are not descendants of `roots`.
 """
-function subgraph{T<:DispatchNode, S<:DispatchNode}(
+function subgraph(
     graph::DispatchGraph,
     endpoints::AbstractArray{T},
     roots::AbstractArray{S}=DispatchNode[],
-)
+) where {T<:DispatchNode, S<:DispatchNode}
     endpoint_ids = Int[graph.nodes[e] for e in endpoints]
     root_ids = Int[graph.nodes[i] for i in roots]
 
