@@ -377,16 +377,7 @@ function run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
                 err.captured.ex, err.captured.processed_bt, id
             )
         else
-            # Necessary because of a bug with empty stacktraces
-            # in base, but will be fixed in 0.6
-            # see https://github.com/JuliaLang/julia/issues/19655
-            trace = try
-                catch_stacktrace()
-            catch
-                StackFrame[]
-            end
-
-            DependencyError(err, trace, id)
+            DependencyError(err, catch_stacktrace(), id)
         end
 
         debug(logger, "Node $id: throwing $dep_err)")
