@@ -1,8 +1,5 @@
 module Dispatcher
 
-# ONLY NECESSARY ON 0.5
-asyncmap = Base.asyncmap
-
 export DispatchGraph,
     DispatchNode,
     DispatchResult,
