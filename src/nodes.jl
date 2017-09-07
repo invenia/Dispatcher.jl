@@ -11,7 +11,7 @@ after a failed number of retries.
 because we could be storing the traceback from a
 `CompositeException` (inside a `RemoteException`) which is of type `Vector{Any}`
 """
-immutable DependencyError{T<:Exception} <: DispatcherError
+struct DependencyError{T<:Exception} <: DispatcherError
     err::T
     trace::Union{Vector{Any}, StackTrace}
     id::Int
@@ -35,7 +35,7 @@ A `DispatchNode` represents a unit of computation that can be run.
 A `DispatchNode` may depend on other `DispatchNode`s, which are returned from
 the [`dependencies`](@ref) function.
 """
-@compat abstract type DispatchNode <: DeferredFutures.AbstractRemoteRef end
+abstract type DispatchNode <: DeferredFutures.AbstractRemoteRef end
 
 const DispatchResult = Result{DispatchNode, DependencyError}
 
@@ -53,7 +53,7 @@ has_label(node::DispatchNode) = false
 Returns a node's label.
 By default, `DispatchNode`s do not support labels, so this method will error.
 """
-get_label{T<:DispatchNode}(node::T) = error("$T does not implement labels")
+get_label(node::T) where {T<:DispatchNode} = error("$T does not implement labels")
 
 """
     set_label!(node::DispatchNode, label)
@@ -62,7 +62,7 @@ Sets a node's label.
 By default, `DispatchNode`s do not support labels, so this method will error.
 Actual method implementations should return their second argument.
 """
-set_label!{T<:DispatchNode}(node::T, label) = error("$T does not implement labels")
+set_label!(node::T, label) where {T<:DispatchNode} = error("$T does not implement labels")
 
 """
     isready(node::DispatchNode) -> Bool
@@ -85,7 +85,7 @@ Base.wait(node::DispatchNode) = nothing
 Fetch a node's result if available, blocking until it is available.
 All subtypes of `DispatchNode` should implement this, so the default method throws an error.
 """
-Base.fetch{T<:DispatchNode}(node::T) = error("$T should implement $fetch, but doesn't!")
+Base.fetch(node::T) where {T<:DispatchNode} = error("$T should implement $fetch, but doesn't!")
 
 """
     dependencies(node::DispatchNode) -> Tuple{Vararg{DispatchNode}}
@@ -119,7 +119,7 @@ run!(node::DispatchNode) = nothing
 """
 A `DataNode` is a `DispatchNode` which wraps a piece of static data.
 """
-@auto_hash_equals type DataNode{T} <: DispatchNode
+@auto_hash_equals mutable struct DataNode{T} <: DispatchNode
     data::T
 end
 
@@ -147,7 +147,7 @@ Any `DispatchNode`s which appear in the args or kwargs values will be noted as
 dependencies.
 This is the most common `DispatchNode`.
 """
-@auto_hash_equals type Op <: DispatchNode
+@auto_hash_equals mutable struct Op <: DispatchNode
     result::DeferredFuture
     func::Base.Callable
     label::String
@@ -363,7 +363,7 @@ run!(exec, [n1, n2])
 In this example, `n1` and `n2` are created as `IndexNode`s pointing to the
 [`Op`](@ref) at index `1` and index `2` respectively.
 """
-@auto_hash_equals type IndexNode{T<:DispatchNode} <: DispatchNode
+@auto_hash_equals mutable struct IndexNode{T<:DispatchNode} <: DispatchNode
     node::T
     index::Int
     result::DeferredFuture
@@ -441,7 +441,7 @@ Fetch data from the `IndexNode`'s parent at the `IndexNode`'s index, performing 
 operation on the process where the data lives. Store the data from that index in a
 `DeferredFuture` in the `IndexNode`.
 """
-function run!{T<:Union{Op, IndexNode}}(node::IndexNode{T})
+function run!(node::IndexNode{T}) where T<:Union{Op, IndexNode}
     put!(node.result, node.node.result[node.index])
     return nothing
 end
@@ -458,7 +458,7 @@ function run!(node::IndexNode)
     return nothing
 end
 
-@auto_hash_equals type CleanupNode{T<:DispatchNode} <: DispatchNode
+@auto_hash_equals mutable struct CleanupNode{T<:DispatchNode} <: DispatchNode
     parent_node::T
     child_nodes::Vector{DispatchNode}
     is_finished::DeferredFuture
@@ -490,7 +490,7 @@ nodes).
 """
 dependencies(node::CleanupNode) = (node.parent_node, node.child_nodes...)
 
-function Base.fetch{T<:CleanupNode}(node::T)
+function Base.fetch(node::T) where T<:CleanupNode
     throw(ArgumentError("DispatchNodes of type $T cannot have dependencies"))
 end
 
@@ -524,7 +524,7 @@ end
 Wait for all of the `CleanupNode`'s dependencies to finish, then clean up the parent node's
 data.
 """
-function run!{T<:Op}(node::CleanupNode{T})
+function run!(node::CleanupNode{T}) where T<:Op
     for dependency in dependencies(node)
         wait(dependency)
     end
@@ -537,7 +537,7 @@ function run!{T<:Op}(node::CleanupNode{T})
     return nothing
 end
 
-@auto_hash_equals type CollectNode{T<:DispatchNode} <: DispatchNode
+@auto_hash_equals mutable struct CollectNode{T<:DispatchNode} <: DispatchNode
     nodes::Vector{T}
     result::DeferredFuture
     label::String
@@ -549,7 +549,7 @@ end
 Create a node which gathers an array of nodes and stores an array of their results in its
 result field.
 """
-function CollectNode{T<:DispatchNode}(nodes::Vector{T})
+function CollectNode(nodes::Vector{T}) where T<:DispatchNode
     num_nodes = length(nodes)
     plural_ending = num_nodes != 1 ? "s" : ""
 
@@ -674,7 +674,7 @@ Base.summary(node::CollectNode) = value_summary(node)
 Base.start(node::DispatchNode) = 1
 Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
 Base.done(node::DispatchNode, state::Int) = false
-Base.eltype{T<:DispatchNode}(node::T) = IndexNode{T}
+Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
@@ -684,7 +684,7 @@ Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
 [`DispatchGraph`](@ref).
 """
-type NodeSet
+mutable struct NodeSet
     id_dict::Dict{Int, DispatchNode}
     node_dict::ObjectIdDict
 end
