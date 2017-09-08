@@ -145,7 +145,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Dispatcher.get_label-Tuple{T<:Dispatcher.DispatchNode}",
+    "location": "pages/api.html#Dispatcher.get_label-Union{Tuple{T}, Tuple{T}} where T<:Dispatcher.DispatchNode",
     "page": "API",
     "title": "Dispatcher.get_label",
     "category": "Method",
@@ -153,7 +153,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Dispatcher.set_label!-Tuple{T<:Dispatcher.DispatchNode,Any}",
+    "location": "pages/api.html#Dispatcher.set_label!-Union{Tuple{T,Any}, Tuple{T}} where T<:Dispatcher.DispatchNode",
     "page": "API",
     "title": "Dispatcher.set_label!",
     "category": "Method",
@@ -209,7 +209,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Base.fetch-Tuple{T<:Dispatcher.DispatchNode}",
+    "location": "pages/api.html#Base.fetch-Union{Tuple{T}, Tuple{T}} where T<:Dispatcher.DispatchNode",
     "page": "API",
     "title": "Base.fetch",
     "category": "Method",
@@ -401,7 +401,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.IndexNode{T<:Union{Dispatcher.IndexNode,Dispatcher.Op}}}",
+    "location": "pages/api.html#Dispatcher.run!-Union{Tuple{Dispatcher.IndexNode{T}}, Tuple{T}} where T<:Union{Dispatcher.IndexNode, Dispatcher.Op}",
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
@@ -633,7 +633,7 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "pages/api.html#Dispatcher.run!-Tuple{Dispatcher.Executor,AbstractArray{T<:Dispatcher.DispatchNode,N},AbstractArray{S<:Dispatcher.DispatchNode,N}}",
+    "location": "pages/api.html#Dispatcher.run!-Union{Tuple{Dispatcher.Executor,AbstractArray{T,N} where N,AbstractArray{S,N} where N}, Tuple{S}, Tuple{T}} where S<:Dispatcher.DispatchNode where T<:Dispatcher.DispatchNode",
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
