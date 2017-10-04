@@ -3,13 +3,13 @@ using ResultTypes
 using Base.Test
 using Memento
 using IterTools
-
+import Compat: @__MODULE__
 import LightGraphs
 
 const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
 Memento.config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
-const logger = get_logger(current_module())
+const logger = get_logger(@__MODULE__)
 
 function test_addproc(x::Int; level=LOG_LEVEL)
     ret = addproc(x)
