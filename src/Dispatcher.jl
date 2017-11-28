@@ -38,9 +38,7 @@ using ResultTypes
 
 abstract type DispatcherError <: Exception end
 
-function __init__()
-    global const logger = get_logger(@__MODULE__)
-end
+const logger = get_logger(@__MODULE__)
 
 include("nodes.jl")
 include("graph.jl")
