@@ -39,6 +39,7 @@ using ResultTypes
 abstract type DispatcherError <: Exception end
 
 const logger = get_logger(@__MODULE__)
+const reset! = DeferredFutures.reset!  # DataStructures also exports this.
 
 include("nodes.jl")
 include("graph.jl")
