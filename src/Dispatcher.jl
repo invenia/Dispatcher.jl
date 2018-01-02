@@ -38,7 +38,7 @@ using ResultTypes
 
 abstract type DispatcherError <: Exception end
 
-const logger = get_logger(@__MODULE__)
+const logger = getlogger(@__MODULE__)
 const reset! = DeferredFutures.reset!  # DataStructures also exports this.
 
 __init__() = Memento.register(logger)  # Register our logger at runtime.
