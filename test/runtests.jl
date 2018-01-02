@@ -9,7 +9,7 @@ import LightGraphs
 const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
 Memento.config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
-const logger = get_logger(@__MODULE__)
+const logger = getlogger(@__MODULE__)
 
 function test_addproc(x::Int; level=LOG_LEVEL)
     ret = addproc(x)
