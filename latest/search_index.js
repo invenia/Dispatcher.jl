@@ -29,7 +29,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Frequently Asked Questions",
     "category": "section",
-    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.Isn't this just Dask?Pretty much. The plan is to implement another Executor and integrate with the dask.distributed scheduler service to piggyback off of their great work.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia's parallel tools see their documentation."
+    "text": "How is Dispatcher different from ComputeFramework/Dagger?Dagger is built around distributing vectorized computations across large arrays. Dispatcher is built to deal with discrete, heterogeneous data using any Julia functions.How is Dispatcher different from Arbiter?Arbiter requires manually adding tasks and their dependencies and handling data passing. Dispatcher automatically identifies dependencies from user code and passes data efficiently between dependencies.Isn\'t this just Dask?Pretty much. The plan is to implement another Executor and integrate with the dask.distributed scheduler service to piggyback off of their great work.How does Dispatcher handle passing data?Dispatcher uses Julia RemoteChannels to pass data between dispatched DispatchNodes. For more information on how data transfer works with Julia\'s parallel tools see their documentation."
 },
 
 {
@@ -149,7 +149,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.get_label",
     "category": "Method",
-    "text": "get_label(node::DispatchNode) -> String\n\nReturns a node's label. By default, DispatchNodes do not support labels, so this method will error.\n\n\n\n"
+    "text": "get_label(node::DispatchNode) -> String\n\nReturns a node\'s label. By default, DispatchNodes do not support labels, so this method will error.\n\n\n\n"
 },
 
 {
@@ -157,7 +157,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.set_label!",
     "category": "Method",
-    "text": "set_label!(node::DispatchNode, label)\n\nSets a node's label. By default, DispatchNodes do not support labels, so this method will error. Actual method implementations should return their second argument.\n\n\n\n"
+    "text": "set_label!(node::DispatchNode, label)\n\nSets a node\'s label. By default, DispatchNodes do not support labels, so this method will error. Actual method implementations should return their second argument.\n\n\n\n"
 },
 
 {
@@ -189,7 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(node::DispatchNode)\n\nExecute a node's action as part of dispatch. The default method performs no action.\n\n\n\n"
+    "text": "run!(node::DispatchNode)\n\nExecute a node\'s action as part of dispatch. The default method performs no action.\n\n\n\n"
 },
 
 {
@@ -213,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Base.fetch",
     "category": "Method",
-    "text": "fetch(node::DispatchNode) -> Any\n\nFetch a node's result if available, blocking until it is available. All subtypes of DispatchNode should implement this, so the default method throws an error.\n\n\n\n"
+    "text": "fetch(node::DispatchNode) -> Any\n\nFetch a node\'s result if available, blocking until it is available. All subtypes of DispatchNode should implement this, so the default method throws an error.\n\n\n\n"
 },
 
 {
@@ -261,7 +261,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.set_label!",
     "category": "Method",
-    "text": "set_label!(op::Op, label::AbstractString)\n\nSet the op's label. Returns its second argument.\n\n\n\n"
+    "text": "set_label!(op::Op, label::AbstractString)\n\nSet the op\'s label. Returns its second argument.\n\n\n\n"
 },
 
 {
@@ -277,7 +277,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.dependencies",
     "category": "Method",
-    "text": "dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}\n\nReturn all dependencies which must be ready before executing this Op. This will be all DispatchNodes in the Op's function args and kwargs.\n\n\n\n"
+    "text": "dependencies(op::Op) -> Tuple{Verarg{DispatchNode}}\n\nReturn all dependencies which must be ready before executing this Op. This will be all DispatchNodes in the Op\'s function args and kwargs.\n\n\n\n"
 },
 
 {
@@ -285,7 +285,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.prepare!",
     "category": "Method",
-    "text": "prepare!(op::Op)\n\nReplace an Op's result field with a fresh, empty one.\n\n\n\n"
+    "text": "prepare!(op::Op)\n\nReplace an Op\'s result field with a fresh, empty one.\n\n\n\n"
 },
 
 {
@@ -293,7 +293,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(op::Op)\n\nFetch an Op's dependencies and execute its function. Store the result in its result::DeferredFuture field.\n\n\n\n"
+    "text": "run!(op::Op)\n\nFetch an Op\'s dependencies and execute its function. Store the result in its result::DeferredFuture field.\n\n\n\n"
 },
 
 {
@@ -389,7 +389,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.prepare!",
     "category": "Method",
-    "text": "prepare!(node::IndexNode)\n\nReplace an IndexNode's result field with a fresh, empty one.\n\n\n\n"
+    "text": "prepare!(node::IndexNode)\n\nReplace an IndexNode\'s result field with a fresh, empty one.\n\n\n\n"
 },
 
 {
@@ -397,7 +397,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(node::IndexNode) -> DeferredFuture\n\nFetch data from the IndexNode's parent at the IndexNode's index, performing the indexing operation on the process where the data lives. Store the data from that index in a DeferredFuture in the IndexNode.\n\n\n\n"
+    "text": "run!(node::IndexNode) -> DeferredFuture\n\nFetch data from the IndexNode\'s parent at the IndexNode\'s index, performing the indexing operation on the process where the data lives. Store the data from that index in a DeferredFuture in the IndexNode.\n\n\n\n"
 },
 
 {
@@ -405,7 +405,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(node::IndexNode) -> DeferredFuture\n\nFetch data from the IndexNode's parent at the IndexNode's index, performing the indexing operation on the process where the data lives. Store the data from that index in a DeferredFuture in the IndexNode.\n\n\n\n"
+    "text": "run!(node::IndexNode) -> DeferredFuture\n\nFetch data from the IndexNode\'s parent at the IndexNode\'s index, performing the indexing operation on the process where the data lives. Store the data from that index in a DeferredFuture in the IndexNode.\n\n\n\n"
 },
 
 {
@@ -477,7 +477,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.set_label!",
     "category": "Method",
-    "text": "set_label!(node::CollectNode, label::AbstractString) -> AbstractString\n\nSet the node's label. Returns its second argument.\n\n\n\n"
+    "text": "set_label!(node::CollectNode, label::AbstractString) -> AbstractString\n\nSet the node\'s label. Returns its second argument.\n\n\n\n"
 },
 
 {
@@ -509,7 +509,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run!",
     "category": "Method",
-    "text": "run!(node::CollectNode)\n\nCollect all of a CollectNode's dependencies' results into a Vector and store that in this node's result field. Returns nothing.\n\n\n\n"
+    "text": "run!(node::CollectNode)\n\nCollect all of a CollectNode\'s dependencies\' results into a Vector and store that in this node\'s result field. Returns nothing.\n\n\n\n"
 },
 
 {
@@ -661,7 +661,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.dispatch!",
     "category": "Method",
-    "text": "dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true) -> Vector\n\nThe default dispatch! method uses asyncmap over all nodes in the context to call dispatch!(exec, node). These dispatch! calls for each node are wrapped in various retry and error handling methods.\n\nWrapping Details\n\nAll nodes are wrapped in a try catch which waits on the value returned from the dispatch!(exec, node) call. Any errors are caught and used to create DependencyErrors which are thrown. If no errors are produced then the node is returned.\nNOTE: All errors thrown by trying to run dispatch!(exec, node) are wrapped in a DependencyError.\nThe aformentioned wrapper function is used in a retry wrapper to rerun failed nodes (up to some limit). The wrapped function will only be retried iff the error produced by dispatch!(::Executor, ::DispatchNode) passes one of the retry functions specific to that Executor. By default the AsyncExecutor has no retry_on functions and the ParallelExecutor only has retry_on functions related to the loss of a worker process during execution.\nA node may enter a failed state if it exits the retry wrapper with an exception. This may occur if an exception is thrown while executing a node and it does not pass any of the retry_on conditions for the Executor or too many attempts to run the node have been made. In the situation where a node has entered a failed state and the node is an Op then the op.result is set to the DependencyError, signifying the node's failure to any dependent nodes. Finally, if throw_error is true then the DependencyError will be immediately thrown in the current process without allowing other nodes to finish. If throw_error is false then the DependencyError is not thrown and it will be returned in the array of passing and failing nodes.\n\nArguments\n\nexec::Executor: the executor we're running\ngraph::DispatchGraph: the context of nodes to run\n\nKeyword Arguments\n\nthrow_error::Bool=true: whether or not to throw the DependencyError for failed nodes\n\nReturns\n\nVector{Union{DispatchNode, DependencyError}}: a list of DispatchNodes or DependencyErrors for failed nodes\n\nThrows\n\ndispatch! has the same behaviour on exceptions as asyncmap and pmap. In 0.5 this will throw a CompositeException containing DependencyErrors, while in 0.6 this will simply throw the first DependencyError.\n\nUsage\n\nExample 1\n\nAssuming we have some uncaught application error:\n\nexec = AsyncExecutor()\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nfailing_node = Op(() -> throw(ErrorException(\"ApplicationError\")))\ndep_node = Op(n -> println(n), failing_node)  # This node will fail as well\ngraph = DispatchGraph([n1, n2, failing_node, dep_node])\n\nThen dispatch!(exec, graph) will throw a DependencyError and dispatch!(exec, graph; throw_error=false) will return an array of passing nodes and the DependencyErrors (ie: [n1, n2, DependencyError(...), DependencyError(...)]).\n\nExample 2\n\nNow if we want to retry our node on certain errors we can do:\n\nexec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == \"503\"])\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nhttp_node = Op(() -> http_get(...))\ngraph = DispatchGraph([n1, n2, http_node])\n\nAssuming that the http_get function does not error 5 times the call to dispatch!(exec, graph) will return [n1, n2, http_node]. If the http_get function either:\n\nfails with a different status code\nfails with something other than an HttpError or\nthrows an HttpError with status \"503\" more than 5 times\n\nthen we'll see the same failure behaviour as in the previous example.\n\n\n\n"
+    "text": "dispatch!(exec::Executor, graph::DispatchGraph; throw_error=true) -> Vector\n\nThe default dispatch! method uses asyncmap over all nodes in the context to call dispatch!(exec, node). These dispatch! calls for each node are wrapped in various retry and error handling methods.\n\nWrapping Details\n\nAll nodes are wrapped in a try catch which waits on the value returned from the dispatch!(exec, node) call. Any errors are caught and used to create DependencyErrors which are thrown. If no errors are produced then the node is returned.\nNOTE: All errors thrown by trying to run dispatch!(exec, node) are wrapped in a DependencyError.\nThe aformentioned wrapper function is used in a retry wrapper to rerun failed nodes (up to some limit). The wrapped function will only be retried iff the error produced by dispatch!(::Executor, ::DispatchNode) passes one of the retry functions specific to that Executor. By default the AsyncExecutor has no retry_on functions and the ParallelExecutor only has retry_on functions related to the loss of a worker process during execution.\nA node may enter a failed state if it exits the retry wrapper with an exception. This may occur if an exception is thrown while executing a node and it does not pass any of the retry_on conditions for the Executor or too many attempts to run the node have been made. In the situation where a node has entered a failed state and the node is an Op then the op.result is set to the DependencyError, signifying the node\'s failure to any dependent nodes. Finally, if throw_error is true then the DependencyError will be immediately thrown in the current process without allowing other nodes to finish. If throw_error is false then the DependencyError is not thrown and it will be returned in the array of passing and failing nodes.\n\nArguments\n\nexec::Executor: the executor we\'re running\ngraph::DispatchGraph: the context of nodes to run\n\nKeyword Arguments\n\nthrow_error::Bool=true: whether or not to throw the DependencyError for failed nodes\n\nReturns\n\nVector{Union{DispatchNode, DependencyError}}: a list of DispatchNodes or DependencyErrors for failed nodes\n\nThrows\n\ndispatch! has the same behaviour on exceptions as asyncmap and pmap. In 0.5 this will throw a CompositeException containing DependencyErrors, while in 0.6 this will simply throw the first DependencyError.\n\nUsage\n\nExample 1\n\nAssuming we have some uncaught application error:\n\nexec = AsyncExecutor()\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nfailing_node = Op(() -> throw(ErrorException(\"ApplicationError\")))\ndep_node = Op(n -> println(n), failing_node)  # This node will fail as well\ngraph = DispatchGraph([n1, n2, failing_node, dep_node])\n\nThen dispatch!(exec, graph) will throw a DependencyError and dispatch!(exec, graph; throw_error=false) will return an array of passing nodes and the DependencyErrors (ie: [n1, n2, DependencyError(...), DependencyError(...)]).\n\nExample 2\n\nNow if we want to retry our node on certain errors we can do:\n\nexec = AsyncExecutor(5, [e -> isa(e, HttpError) && e.status == \"503\"])\nn1 = Op(() -> 3)\nn2 = Op(() -> 4)\nhttp_node = Op(() -> http_get(...))\ngraph = DispatchGraph([n1, n2, http_node])\n\nAssuming that the http_get function does not error 5 times the call to dispatch!(exec, graph) will return [n1, n2, http_node]. If the http_get function either:\n\nfails with a different status code\nfails with something other than an HttpError or\nthrows an HttpError with status \"503\" more than 5 times\n\nthen we\'ll see the same failure behaviour as in the previous example.\n\n\n\n"
 },
 
 {
@@ -669,7 +669,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.run_inner_node!",
     "category": "Method",
-    "text": "run_inner_node!(exec::Executor, node::DispatchNode, id::Int)\n\nRun the DispatchNode in the DispatchGraph at position id. Any error thrown during the node's execution is caught and wrapped in a DependencyError.\n\nTypical Executor implementations should not need to override this.\n\n\n\n"
+    "text": "run_inner_node!(exec::Executor, node::DispatchNode, id::Int)\n\nRun the DispatchNode in the DispatchGraph at position id. Any error thrown during the node\'s execution is caught and wrapped in a DependencyError.\n\nTypical Executor implementations should not need to override this.\n\n\n\n"
 },
 
 {
@@ -701,7 +701,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.AsyncExecutor",
     "category": "Type",
-    "text": "AsyncExecutor is an Executor which schedules a local Julia Task for each DispatchNode and waits for them to complete. AsyncExecutor's dispatch!(::AsyncExecutor, ::DispatchNode) method will complete as long as each DispatchNode's run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\n\n\n"
+    "text": "AsyncExecutor is an Executor which schedules a local Julia Task for each DispatchNode and waits for them to complete. AsyncExecutor\'s dispatch!(::AsyncExecutor, ::DispatchNode) method will complete as long as each DispatchNode\'s run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\n\n\n"
 },
 
 {
@@ -749,7 +749,7 @@ var documenterSearchIndex = {"docs": [
     "page": "API",
     "title": "Dispatcher.ParallelExecutor",
     "category": "Type",
-    "text": "ParallelExecutor is an Executor which creates a Julia Task for each DispatchNode, spawns each of those tasks on the processes available to Julia, and waits for them to complete. ParallelExecutor's dispatch!(::ParallelExecutor, ::DispatchGraph) method will complete as long as each DispatchNode's run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\nParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor\n\nretries is the number of times the executor is to retry a failed node. retry_on is a vector of predicates which accept an Exception and return true if a node can and should be retried (and false otherwise). Returns a new ParallelExecutor.\n\n\n\n"
+    "text": "ParallelExecutor is an Executor which creates a Julia Task for each DispatchNode, spawns each of those tasks on the processes available to Julia, and waits for them to complete. ParallelExecutor\'s dispatch!(::ParallelExecutor, ::DispatchGraph) method will complete as long as each DispatchNode\'s run!(::DispatchNode) method completes and there are no cycles in the computation graph.\n\nParallelExecutor(retries=5, retry_on::Vector{Function}=Function[]) -> ParallelExecutor\n\nretries is the number of times the executor is to retry a failed node. retry_on is a vector of predicates which accept an Exception and return true if a node can and should be retried (and false otherwise). Returns a new ParallelExecutor.\n\n\n\n"
 },
 
 {
