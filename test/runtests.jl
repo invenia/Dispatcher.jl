@@ -3,8 +3,11 @@ using ResultTypes
 using Base.Test
 using Memento
 using IterTools
-import Compat: @__MODULE__
+
 import LightGraphs
+
+using Compat: @__MODULE__
+using ResultTypes: iserror
 
 const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
 
