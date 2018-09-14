@@ -28,10 +28,10 @@ function DispatchGraph(
     input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
 ) where {T<:DispatchNode, S<:DispatchNode}
     graph = DispatchGraph()
-    to_visit = Stack(DispatchNode)
+    to_visit = Stack{DispatchNode}()
 
     # this is an ObjectIdDict to avoid a hashing stack overflow when there are cycles
-    visited = ObjectIdDict()
+    visited = IdDict{Any, Any}()
     for node in output_nodes
         push!(graph, node)
         push!(to_visit, node)
@@ -114,21 +114,21 @@ Return an iterable of all nodes stored in the `DispatchGraph`.
 nodes(graph::DispatchGraph) = nodes(graph.nodes)
 
 """
-    in_neighbors(graph::DispatchGraph, node::DispatchNode) ->
+    inneighbors(graph::DispatchGraph, node::DispatchNode) ->
 
 Return an iterable of all nodes in the graph with edges from themselves to `node`.
 """
-function LightGraphs.in_neighbors(graph::DispatchGraph, node::DispatchNode)
-    imap(n->graph.nodes[n], in_neighbors(graph.graph, graph.nodes[node]))
+function LightGraphs.inneighbors(graph::DispatchGraph, node::DispatchNode)
+    imap(n->graph.nodes[n], inneighbors(graph.graph, graph.nodes[node]))
 end
 
 """
-    out_neighbors(graph::DispatchGraph, node::DispatchNode) ->
+    outneighbors(graph::DispatchGraph, node::DispatchNode) ->
 
 Return an iterable of all nodes in the graph with edges from `node` to themselves.
 """
-function LightGraphs.out_neighbors(graph::DispatchGraph, node::DispatchNode)
-    imap(n->graph.nodes[n], out_neighbors(graph.graph, graph.nodes[node]))
+function LightGraphs.outneighbors(graph::DispatchGraph, node::DispatchNode)
+    imap(n->graph.nodes[n], outneighbors(graph.graph, graph.nodes[node]))
 end
 
 """
@@ -152,7 +152,7 @@ function LightGraphs.induced_subgraph(graph::DispatchGraph, vs)
     end
 
     for keep_id in vs
-        for vc in out_neighbors(graph.graph, keep_id)
+        for vc in outneighbors(graph.graph, keep_id)
             if vc in vs
                 add_edge!(
                     new_graph.graph,
@@ -184,8 +184,8 @@ function Base.:(==)(graph1::DispatchGraph, graph2::DispatchGraph)
     end
 
     for node in nodes1
-        if Set{DispatchNode}(out_neighbors(graph1, node)) !=
-                Set{DispatchNode}(out_neighbors(graph2, node))
+        if Set{DispatchNode}(outneighbors(graph1, node)) !=
+                Set{DispatchNode}(outneighbors(graph2, node))
             return false
         end
     end
@@ -220,14 +220,14 @@ function subgraph(
     endpoints::AbstractArray{Int},
     roots::AbstractArray{Int}=Int[],
 )
-    to_visit = Stack(Int)
+    to_visit = Stack{Int}()
 
     if isempty(endpoints)
         rootset = Set{Int}(roots)
         discards = Set{Int}()
 
         for v in roots
-            for vp in in_neighbors(graph.graph, v)
+            for vp in inneighbors(graph.graph, v)
                 push!(to_visit, vp)
             end
         end
@@ -235,10 +235,10 @@ function subgraph(
         while length(to_visit) > 0
             v = pop!(to_visit)
 
-            if all((vc in rootset || vc in discards) for vc in out_neighbors(graph.graph, v))
+            if all((vc in rootset || vc in discards) for vc in outneighbors(graph.graph, v))
                 push!(discards, v)
 
-                for vp in in_neighbors(graph.graph, v)
+                for vp in inneighbors(graph.graph, v)
                     push!(to_visit, vp)
                 end
             end
@@ -259,7 +259,7 @@ function subgraph(
         while length(to_visit) > 0
             v = pop!(to_visit)
 
-            for vp in in_neighbors(graph.graph, v)
+            for vp in inneighbors(graph.graph, v)
                 if !(vp in keeps)
                     push!(to_visit, vp)
                 end

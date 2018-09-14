@@ -13,7 +13,7 @@ because we could be storing the traceback from a
 """
 struct DependencyError{T<:Exception} <: DispatcherError
     err::T
-    trace::Union{Vector{Any}, StackTrace}
+    trace::Union{Vector{Any}, Base.StackTraces.StackTrace}
     id::Int
 end
 
@@ -26,7 +26,7 @@ Retuns a string representation of the error with
 only the internal `Exception` type and the `id`
 """
 function Base.summary(de::DependencyError)
-    err_type = replace(string(typeof(de.err)), "Dispatcher.", "")
+    err_type = replace(string(typeof(de.err)), "Dispatcher." => "")
     return "DependencyError<$err_type, $(de.id)>"
 end
 
@@ -194,7 +194,7 @@ macro op(ex)
         isa(arg_ex, Expr) && arg_ex.head === :parameters
     end
 
-    if param_idx > 0
+    if param_idx !== nothing
         ex.args[1:param_idx] = circshift(ex.args[1:param_idx], 1)
     end
 
@@ -229,12 +229,9 @@ it will be printed with that arg.
 function Base.summary(op::Op)
     args = join(map(value_summary, op.args), ", ")
     kwargs = join(
-        map(op.kwargs) do kwarg
-            "$(kwarg[1]) => $(value_summary(kwarg[2]))"
-        end,
+        ["$(kwarg[1]) => $(value_summary(kwarg[2]))" for kwarg in op.kwargs],
         ", "
     )
-
     all_args = join(filter(!isempty, [op.label, args, kwargs]), ", ")
     return "Op<$all_args>"
 end
@@ -268,10 +265,10 @@ Return all dependencies which must be ready before executing this `Op`.
 This will be all [`DispatchNode`](@ref)s in the `Op`'s function `args` and `kwargs`.
 """
 function dependencies(op::Op)
-    filter(x->isa(x, DispatchNode), chain(
+    filter(x->isa(x, DispatchNode), Iterators.flatten((
         op.args,
         imap(pair->pair[2], op.kwargs)
-    ))
+    )))
 end
 
 """
@@ -335,13 +332,7 @@ function run!(op::Op)
         end
     end
 
-    kwargs = map(op.kwargs) do kwarg
-        if isa(kwarg.second, DispatchNode)
-            return (kwarg.first => deps[kwarg.second])
-        else
-            return kwarg
-        end
-    end
+    kwargs = [kwarg=> isa(kwarg.second, DispatchNode) ? kwarg.first => deps[kwarg.second] : kwarg for kwarg in op.kwargs]
 
     put!(op.result, op.func(args...; kwargs...))
     return nothing
@@ -686,7 +677,7 @@ the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
 """
 mutable struct NodeSet
     id_dict::Dict{Int, DispatchNode}
-    node_dict::ObjectIdDict
+    node_dict::IdDict{Any, Any}
 end
 
 """
@@ -694,7 +685,7 @@ end
 
 Create a new empty `NodeSet`.
 """
-NodeSet() = NodeSet(Dict{Int, DispatchNode}(), ObjectIdDict())
+NodeSet() = NodeSet(Dict{Int, DispatchNode}(), IdDict{Any, Any}())
 
 """
     show(io::IO, ns::NodeSet)

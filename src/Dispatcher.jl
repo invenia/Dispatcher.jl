@@ -35,6 +35,7 @@ using IterTools
 using LightGraphs
 using Memento
 using ResultTypes
+using Distributed
 
 abstract type DispatcherError <: Exception end
 
