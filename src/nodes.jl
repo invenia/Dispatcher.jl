@@ -194,7 +194,7 @@ macro op(ex)
         isa(arg_ex, Expr) && arg_ex.head === :parameters
     end
 
-    if param_idx !== nothing
+    if something(param_idx, 0) > 0
         ex.args[1:param_idx] = circshift(ex.args[1:param_idx], 1)
     end
 
@@ -677,7 +677,7 @@ the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
 """
 mutable struct NodeSet
     id_dict::Dict{Int, DispatchNode}
-    node_dict::IdDict{Any, Any}
+    node_dict::Id_Dict
 end
 
 """
@@ -685,7 +685,7 @@ end
 
 Create a new empty `NodeSet`.
 """
-NodeSet() = NodeSet(Dict{Int, DispatchNode}(), IdDict{Any, Any}())
+NodeSet() = NodeSet(Dict{Int, DispatchNode}(), Id_Dict())
 
 """
     show(io::IO, ns::NodeSet)

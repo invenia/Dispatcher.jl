@@ -28,10 +28,10 @@ function DispatchGraph(
     input_nodes::Union{AbstractArray{S}, Base.AbstractSet{S}}=DispatchNode[],
 ) where {T<:DispatchNode, S<:DispatchNode}
     graph = DispatchGraph()
-    to_visit = Stack{DispatchNode}()
+    to_visit = typed_stack(DispatchNode)
 
     # this is an ObjectIdDict to avoid a hashing stack overflow when there are cycles
-    visited = IdDict{Any, Any}()
+    visited = Id_Dict()
     for node in output_nodes
         push!(graph, node)
         push!(to_visit, node)
@@ -220,7 +220,7 @@ function subgraph(
     endpoints::AbstractArray{Int},
     roots::AbstractArray{Int}=Int[],
 )
-    to_visit = Stack{Int}()
+    to_visit = typed_stack(Int)
 
     if isempty(endpoints)
         rootset = Set{Int}(roots)

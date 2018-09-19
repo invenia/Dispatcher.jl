@@ -3,8 +3,8 @@ using ResultTypes
 using Compat.Test
 using Memento
 using IterTools
-using Distributed
-using DeferredFutures
+using Compat.Distributed
+#using DeferredFutures
 import LightGraphs
 
 using Compat: @__MODULE__
@@ -286,7 +286,11 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                @test collect(graph_nodes[1].kwargs) == [:limit => 1]
+                if VERSION < v"0.7"
+                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                else
+                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
+                end
             end
 
             @testset "Op (kwargs, with semicolon)" begin
@@ -305,7 +309,11 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                @test collect(graph_nodes[1].kwargs) == [:limit => 1]
+                if VERSION < v"0.7"
+                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                else
+                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
+                end
             end
 
             @testset "Op (using Type)" begin

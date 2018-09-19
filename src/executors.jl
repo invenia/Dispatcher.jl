@@ -1,4 +1,4 @@
-import Distributed: wrap_on_error, wrap_retry
+import Compat.Distributed: wrap_on_error, wrap_retry
 
 """
 An `Executor` handles execution of [`DispatchGraph`](@ref)s.
@@ -85,7 +85,7 @@ function run!(
     input_map::AbstractDict=Dict{DispatchNode, Any}(),
     throw_error=true
 ) where {T<:DispatchNode, S<:DispatchNode}
-    graph = DispatchGraph(output_nodes, collect(Iterators.flatten((input_nodes, keys(input_map)))))
+    graph = DispatchGraph(output_nodes, collect(DispatchNode, Iterators.flatten((input_nodes, keys(input_map)))))
 
     if is_cyclic(graph.graph)
         throw(ExecutorError(

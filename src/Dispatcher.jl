@@ -35,10 +35,12 @@ using IterTools
 using LightGraphs
 using Memento
 using ResultTypes
-using Distributed
+using Compat.Distributed
 
 abstract type DispatcherError <: Exception end
 
+const Id_Dict = VERSION < v"0.7" ? ObjectIdDict : IdDict{Any, Any}
+typed_stack(t) = VERSION < v"0.7" ? Stack(t) : Stack{t}()
 const logger = getlogger(@__MODULE__)
 const reset! = DeferredFutures.reset!  # DataStructures also exports this.
 
