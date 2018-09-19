@@ -4,7 +4,7 @@ using Compat.Test
 using Memento
 using IterTools
 using Compat.Distributed
-#using DeferredFutures
+using DeferredFutures
 import LightGraphs
 
 using Compat: @__MODULE__

@@ -669,6 +669,9 @@ Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
+function Base.iterate(node::DispatchNode, state::Int=1)
+    return IndexNode(node, state), state + 1
+end
 
 """
 `NodeSet` stores a correspondence between intances of [`DispatchNode`](@ref)s and
