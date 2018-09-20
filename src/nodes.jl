@@ -332,7 +332,14 @@ function run!(op::Op)
         end
     end
 
-    kwargs = [kwarg=> isa(kwarg.second, DispatchNode) ? kwarg.first => deps[kwarg.second] : kwarg for kwarg in op.kwargs]
+    kwargs = [
+        if isa(kwarg.second, DispatchNode)
+            kwarg.first => deps[kwarg.second]
+        else
+            kwarg
+        end
+        for kwarg in op.kwargs
+    ]
 
     put!(op.result, op.func(args...; kwargs...))
     return nothing
@@ -661,17 +668,21 @@ Base.summary(node::CollectNode) = value_summary(node)
 #   a, b = x
 #   @assert a == IndexNode(x, 1)
 #   @assert b == IndexNode(x, 2)
+if VERSION < v"0.7"
+    Base.start(node::DispatchNode) = 1
+    Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
+    Base.done(node::DispatchNode, state::Int) = false
+else
+    function Base.iterate(node::DispatchNode, state::Int=1)
+        return IndexNode(node, state), state + 1
+    end
+end
 
-Base.start(node::DispatchNode) = 1
-Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
-Base.done(node::DispatchNode, state::Int) = false
+
 Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
-function Base.iterate(node::DispatchNode, state::Int=1)
-    return IndexNode(node, state), state + 1
-end
 
 """
 `NodeSet` stores a correspondence between intances of [`DispatchNode`](@ref)s and
@@ -680,7 +691,7 @@ the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
 """
 mutable struct NodeSet
     id_dict::Dict{Int, DispatchNode}
-    node_dict::Id_Dict
+    node_dict::_IdDict
 end
 
 """
@@ -688,7 +699,7 @@ end
 
 Create a new empty `NodeSet`.
 """
-NodeSet() = NodeSet(Dict{Int, DispatchNode}(), Id_Dict())
+NodeSet() = NodeSet(Dict{Int, DispatchNode}(), _IdDict())
 
 """
     show(io::IO, ns::NodeSet)
@@ -730,22 +741,24 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
     return ns
 end
 
-"""
-    findin(ns::NodeSet, nodes) -> Vector{Int}
+if VERSION < v"0.7"
+    """
+        findin(ns::NodeSet, nodes) -> Vector{Int}
 
-Return the node numbers of all nodes in the node set whcih are present in the `nodes`
-iterable of [`DispatchNode`](@ref)s.
-"""
-function Base.findin(ns::NodeSet, nodes)
-    numbers = Int[]
-    for node in nodes
-        number = get(ns.node_dict, node, 0)
-        if number != 0
-            push!(numbers, number)
+    Return the node numbers of all nodes in the node set whcih are present in the `nodes`
+    iterable of [`DispatchNode`](@ref)s.
+    """
+    function Base.findin(ns::NodeSet, nodes)
+        numbers = Int[]
+        for node in nodes
+            number = get(ns.node_dict, node, 0)
+            if number != 0
+                push!(numbers, number)
+            end
         end
-    end
 
-    return numbers
+        return numbers
+    end
 end
 
 """

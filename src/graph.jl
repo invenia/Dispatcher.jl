@@ -31,7 +31,7 @@ function DispatchGraph(
     to_visit = typed_stack(DispatchNode)
 
     # this is an ObjectIdDict to avoid a hashing stack overflow when there are cycles
-    visited = Id_Dict()
+    visited = _IdDict()
     for node in output_nodes
         push!(graph, node)
         push!(to_visit, node)
