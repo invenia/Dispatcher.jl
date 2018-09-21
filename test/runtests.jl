@@ -282,7 +282,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7"
+                if VERSION < v"0.7.0-DEV.2738"
                     @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
                 else
                     @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
@@ -305,7 +305,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7"
+                if VERSION < v"0.7.0-DEV.2738"
                     @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
                 else
                     @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
