@@ -10,16 +10,12 @@ import LightGraphs
 using Compat: @__MODULE__
 using ResultTypes: iserror
 
-const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
-
-Memento.config!(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
 const logger = getlogger(@__MODULE__)
 
 function test_addproc(x::Int; level=LOG_LEVEL)
     ret = addproc(x)
     @everywhere @eval using Dispatcher
     @everywhere @eval using Memento
-    @everywhere Memento.config(level; fmt="[{level} | {name}]: {msg}")
 end
 
 module OtherModule
@@ -256,7 +252,7 @@ end
                     @op sum(4)
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -275,7 +271,7 @@ end
                     @op split("foo bar", limit=1)
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -298,7 +294,7 @@ end
                     @op split("foo bar"; limit=1)
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -321,7 +317,7 @@ end
                     @op Integer(2.0)
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -357,7 +353,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
@@ -392,7 +388,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
@@ -426,7 +422,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(Main, ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)

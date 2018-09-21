@@ -1,4 +1,5 @@
 import Compat.Iterators: filter
+using Compat: findfirst
 
 """
 `DependencyError` wraps any errors (and corresponding traceback)
@@ -194,7 +195,7 @@ macro op(ex)
         isa(arg_ex, Expr) && arg_ex.head === :parameters
     end
 
-    if something(param_idx, 0) > 0
+    if param_idx !== nothing
         ex.args[1:param_idx] = circshift(ex.args[1:param_idx], 1)
     end
 
@@ -229,7 +230,9 @@ it will be printed with that arg.
 function Base.summary(op::Op)
     args = join(map(value_summary, op.args), ", ")
     kwargs = join(
-        ["$(kwarg[1]) => $(value_summary(kwarg[2]))" for kwarg in op.kwargs],
+        map(collect(op.kwargs)) do kwarg
+            "$(kwarg[1]) => $(value_summary(kwarg[2]))"
+        end,
         ", "
     )
     all_args = join(filter(!isempty, [op.label, args, kwargs]), ", ")
@@ -332,14 +335,13 @@ function run!(op::Op)
         end
     end
 
-    kwargs = [
+    kwargs = map(collect(op.kwargs)) do kwarg
         if isa(kwarg.second, DispatchNode)
             kwarg.first => deps[kwarg.second]
         else
             kwarg
         end
-        for kwarg in op.kwargs
-    ]
+    end
 
     put!(op.result, op.func(args...; kwargs...))
     return nothing
@@ -739,26 +741,6 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
     end
 
     return ns
-end
-
-if VERSION < v"0.7"
-    """
-        findin(ns::NodeSet, nodes) -> Vector{Int}
-
-    Return the node numbers of all nodes in the node set whcih are present in the `nodes`
-    iterable of [`DispatchNode`](@ref)s.
-    """
-    function Base.findin(ns::NodeSet, nodes)
-        numbers = Int[]
-        for node in nodes
-            number = get(ns.node_dict, node, 0)
-            if number != 0
-                push!(numbers, number)
-            end
-        end
-
-        return numbers
-    end
 end
 
 """

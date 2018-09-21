@@ -367,7 +367,7 @@ function run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
 
         cond = dispatch!(exec, node)
         debug(logger, "Waiting on $cond")
-        fetch(cond)
+        wait(cond)
         info(logger, "Node $id ($desc): complete.")
     catch err
         debug(logger, "Node $id: errored with $err)")
