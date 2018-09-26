@@ -11,12 +11,9 @@ using Compat: @__MODULE__
 using ResultTypes: iserror
 
 const logger = getlogger(@__MODULE__)
+const LOG_LEVEL = "info" # could also be "debug", "notice", "warn", etc
 
-function test_addproc(x::Int; level=LOG_LEVEL)
-    ret = addproc(x)
-    @everywhere @eval using Dispatcher
-    @everywhere @eval using Memento
-end
+Memento.config!(LOG_LEVEL)
 
 module OtherModule
 
