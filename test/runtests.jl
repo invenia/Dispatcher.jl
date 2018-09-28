@@ -1,25 +1,19 @@
 using Dispatcher
 using ResultTypes
-using Base.Test
+using Compat.Test
 using Memento
 using IterTools
-
+using Compat.Distributed
+using DeferredFutures
 import LightGraphs
 
 using Compat: @__MODULE__
 using ResultTypes: iserror
 
-const LOG_LEVEL = "info"      # could also be "debug", "notice", "warn", etc
-
-Memento.config(LOG_LEVEL; fmt="[{level} | {name}]: {msg}")
 const logger = getlogger(@__MODULE__)
+const LOG_LEVEL = "info" # could also be "debug", "notice", "warn", etc
 
-function test_addproc(x::Int; level=LOG_LEVEL)
-    ret = addproc(x)
-    @everywhere using Dispatcher
-    @everywhere using Memento
-    @everywhere Memento.config(level; fmt="[{level} | {name}]: {msg}")
-end
+Memento.config!(LOG_LEVEL)
 
 module OtherModule
 
@@ -30,7 +24,6 @@ mutable struct MyType
 end
 
 end # module
-
 
 @testset "Graph" begin
     @testset "Adding" begin
@@ -50,7 +43,7 @@ end # module
         @test g.nodes[1] === node1
         @test g.nodes[2] === node2
         @test LightGraphs.ne(g.graph) == 1
-        @test collect(LightGraphs.out_neighbors(g.graph, 1)) == [2]
+        @test collect(LightGraphs.outneighbors(g.graph, 1)) == [2]
     end
 
     @testset "Equality" begin
@@ -256,7 +249,7 @@ end
                     @op sum(4)
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -275,7 +268,7 @@ end
                     @op split("foo bar", limit=1)
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -286,7 +279,11 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                if VERSION < v"0.7.0-DEV.2738"
+                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                else
+                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
+                end
             end
 
             @testset "Op (kwargs, with semicolon)" begin
@@ -294,7 +291,7 @@ end
                     @op split("foo bar"; limit=1)
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -305,7 +302,11 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                if VERSION < v"0.7.0-DEV.2738"
+                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
+                else
+                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
+                end
             end
 
             @testset "Op (using Type)" begin
@@ -313,7 +314,7 @@ end
                     @op Integer(2.0)
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 op = eval(expanded_ex)
 
@@ -349,7 +350,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
@@ -370,7 +371,7 @@ end
             end
 
             @testset "Functions (importing symbols from other modules)" begin
-                import OtherModule
+                import .OtherModule
 
                 ex = quote
                     function foo(var::OtherModule.MyType)
@@ -384,7 +385,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)
@@ -404,7 +405,7 @@ end
             end
 
             @testset "Functions (using symbols from other modules)" begin
-                using OtherModule
+                using .OtherModule: MyType
 
                 ex = quote
                     function foo(var::MyType)
@@ -418,7 +419,7 @@ end
                     d = @op b * c
                 end
 
-                expanded_ex = macroexpand(ex)
+                expanded_ex = macroexpand(@__MODULE__, ex)
 
                 result_node = eval(expanded_ex)
                 @test isa(result_node, Op)

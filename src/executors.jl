@@ -1,4 +1,4 @@
-import Base.Distributed: wrap_on_error, wrap_retry
+import Compat.Distributed: wrap_on_error, wrap_retry
 
 """
 An `Executor` handles execution of [`DispatchGraph`](@ref)s.
@@ -82,10 +82,10 @@ function run!(
     exec::Executor,
     output_nodes::AbstractArray{T},
     input_nodes::AbstractArray{S}=DispatchNode[];
-    input_map::Associative=Dict{DispatchNode, Any}(),
+    input_map::AbstractDict=Dict{DispatchNode, Any}(),
     throw_error=true
 ) where {T<:DispatchNode, S<:DispatchNode}
-    graph = DispatchGraph(output_nodes, collect(chain(input_nodes, keys(input_map))))
+    graph = DispatchGraph(output_nodes, collect(DispatchNode, Iterators.flatten((input_nodes, keys(input_map)))))
 
     if is_cyclic(graph.graph)
         throw(ExecutorError(
@@ -94,7 +94,7 @@ function run!(
     end
 
     # replace nodes in input_map with their values
-    for (node, val) in chain(zip(input_nodes, imap(fetch, input_nodes)), input_map)
+    for (node, val) in Iterators.flatten((zip(input_nodes, imap(fetch, input_nodes)), input_map))
         node_id = graph.nodes[node]
         graph.nodes[node_id] = DataNode(val)
     end
@@ -377,7 +377,7 @@ function run_inner_node!(exec::Executor, node::DispatchNode, id::Int)
                 err.captured.ex, err.captured.processed_bt, id
             )
         else
-            DependencyError(err, catch_stacktrace(), id)
+            DependencyError(err, stacktrace(catch_backtrace()), id)
         end
 
         debug(logger, "Node $id: throwing $dep_err)")
@@ -414,11 +414,11 @@ end
     dispatch!(exec::AsyncExecutor, node::DispatchNode) -> Task
 
 `dispatch!` takes the `AsyncExecutor` and a `DispatchNode` to run.
-The [`run!(::DispatchNode)`](@ref) method on the node is called within a `@schedule` block
+The [`run!(::DispatchNode)`](@ref) method on the node is called within a `@async` block
 and the resulting `Task` is returned.
 This is the defining method of `AsyncExecutor`.
 """
-dispatch!(exec::AsyncExecutor, node::DispatchNode) = @schedule run!(node)
+dispatch!(exec::AsyncExecutor, node::DispatchNode) = @async run!(node)
 
 """
 `ParallelExecutor` is an [`Executor`](@ref) which creates a Julia `Task` for each
@@ -453,20 +453,20 @@ mutable struct ParallelExecutor <: Executor
             # If we are in the middle of fetching data and the process is killed we
             # could get an ArgumentError saying that the stream was closed or unusable.
             (e) -> begin
-                isa(e, ArgumentError) && contains(e.msg, "stream is closed or unusable")
+                isa(e, ArgumentError) && occursin("stream is closed or unusable", e.msg)
             end,
 
             # Julia appears to have a race condition where the worker process is removed at the
             # same time as `@spawn` is selecting a pid which results in a negative pid.
             # This is extremely hard to reproduce, but has happened a few times.
             (e) -> begin
-                isa(e, ArgumentError) && contains(e.msg, "IntSet elements cannot be negative")
+                isa(e, ArgumentError) && occursin("IntSet elements cannot be negative", e.msg)
             end,
 
             # Similar to the "stream is closed or unusable" error, we can get an error
             # attempting to write to the unknown socket (of a process that has been killed)
             (e) -> begin
-                isa(e, ErrorException) && contains(e.msg, "attempt to send to unknown socket")
+                isa(e, ErrorException) && occursin("attempt to send to unknown socket", e.msg)
             end
         ]
 

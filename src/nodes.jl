@@ -1,4 +1,5 @@
 import Compat.Iterators: filter
+using Compat: findfirst
 
 """
 `DependencyError` wraps any errors (and corresponding traceback)
@@ -13,7 +14,7 @@ because we could be storing the traceback from a
 """
 struct DependencyError{T<:Exception} <: DispatcherError
     err::T
-    trace::Union{Vector{Any}, StackTrace}
+    trace::Union{Vector{Any}, Base.StackTraces.StackTrace}
     id::Int
 end
 
@@ -26,7 +27,7 @@ Retuns a string representation of the error with
 only the internal `Exception` type and the `id`
 """
 function Base.summary(de::DependencyError)
-    err_type = replace(string(typeof(de.err)), "Dispatcher.", "")
+    err_type = replace(string(typeof(de.err)), "Dispatcher." => "")
     return "DependencyError<$err_type, $(de.id)>"
 end
 
@@ -194,7 +195,7 @@ macro op(ex)
         isa(arg_ex, Expr) && arg_ex.head === :parameters
     end
 
-    if param_idx > 0
+    if param_idx !== nothing
         ex.args[1:param_idx] = circshift(ex.args[1:param_idx], 1)
     end
 
@@ -229,12 +230,11 @@ it will be printed with that arg.
 function Base.summary(op::Op)
     args = join(map(value_summary, op.args), ", ")
     kwargs = join(
-        map(op.kwargs) do kwarg
+        map(collect(op.kwargs)) do kwarg
             "$(kwarg[1]) => $(value_summary(kwarg[2]))"
         end,
         ", "
     )
-
     all_args = join(filter(!isempty, [op.label, args, kwargs]), ", ")
     return "Op<$all_args>"
 end
@@ -268,10 +268,10 @@ Return all dependencies which must be ready before executing this `Op`.
 This will be all [`DispatchNode`](@ref)s in the `Op`'s function `args` and `kwargs`.
 """
 function dependencies(op::Op)
-    filter(x->isa(x, DispatchNode), chain(
+    filter(x->isa(x, DispatchNode), Iterators.flatten((
         op.args,
         imap(pair->pair[2], op.kwargs)
-    ))
+    )))
 end
 
 """
@@ -335,11 +335,11 @@ function run!(op::Op)
         end
     end
 
-    kwargs = map(op.kwargs) do kwarg
+    kwargs = map(collect(op.kwargs)) do kwarg
         if isa(kwarg.second, DispatchNode)
-            return (kwarg.first => deps[kwarg.second])
+            kwarg.first => deps[kwarg.second]
         else
-            return kwarg
+            kwarg
         end
     end
 
@@ -670,10 +670,17 @@ Base.summary(node::CollectNode) = value_summary(node)
 #   a, b = x
 #   @assert a == IndexNode(x, 1)
 #   @assert b == IndexNode(x, 2)
+if VERSION < v"0.7"
+    Base.start(node::DispatchNode) = 1
+    Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
+    Base.done(node::DispatchNode, state::Int) = false
+else
+    function Base.iterate(node::DispatchNode, state::Int=1)
+        return IndexNode(node, state), state + 1
+    end
+end
 
-Base.start(node::DispatchNode) = 1
-Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
-Base.done(node::DispatchNode, state::Int) = false
+
 Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
@@ -686,7 +693,7 @@ the `Int` indices used by `LightGraphs` to denote vertices. It is only used by
 """
 mutable struct NodeSet
     id_dict::Dict{Int, DispatchNode}
-    node_dict::ObjectIdDict
+    node_dict::_IdDict
 end
 
 """
@@ -694,7 +701,7 @@ end
 
 Create a new empty `NodeSet`.
 """
-NodeSet() = NodeSet(Dict{Int, DispatchNode}(), ObjectIdDict())
+NodeSet() = NodeSet(Dict{Int, DispatchNode}(), _IdDict())
 
 """
     show(io::IO, ns::NodeSet)
@@ -734,24 +741,6 @@ function Base.push!(ns::NodeSet, node::DispatchNode)
     end
 
     return ns
-end
-
-"""
-    findin(ns::NodeSet, nodes) -> Vector{Int}
-
-Return the node numbers of all nodes in the node set whcih are present in the `nodes`
-iterable of [`DispatchNode`](@ref)s.
-"""
-function Base.findin(ns::NodeSet, nodes)
-    numbers = Int[]
-    for node in nodes
-        number = get(ns.node_dict, node, 0)
-        if number != 0
-            push!(numbers, number)
-        end
-    end
-
-    return numbers
 end
 
 """
