@@ -1,6 +1,3 @@
-import Compat.Iterators: filter
-using Compat: findfirst
-
 """
 `DependencyError` wraps any errors (and corresponding traceback)
 that occur on the dependency of a given nodes.
@@ -268,7 +265,7 @@ Return all dependencies which must be ready before executing this `Op`.
 This will be all [`DispatchNode`](@ref)s in the `Op`'s function `args` and `kwargs`.
 """
 function dependencies(op::Op)
-    filter(x->isa(x, DispatchNode), Iterators.flatten((
+    Iterators.filter(x->isa(x, DispatchNode), Iterators.flatten((
         op.args,
         imap(pair->pair[2], op.kwargs)
     )))

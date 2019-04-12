@@ -2,6 +2,15 @@ __precompile__()
 
 module Dispatcher
 
+using AutoHashEquals
+using DataStructures
+using DeferredFutures
+using Distributed
+using IterTools
+using LightGraphs
+using Memento
+using ResultTypes
+
 export DispatchGraph,
     DispatchNode,
     DispatchResult,
@@ -26,16 +35,6 @@ export Executor,
     run!
 
 export @op
-
-using AutoHashEquals
-using Compat
-using DataStructures
-using DeferredFutures
-using IterTools
-using LightGraphs
-using Memento
-using ResultTypes
-using Compat.Distributed
 
 abstract type DispatcherError <: Exception end
 

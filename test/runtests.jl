@@ -1,14 +1,12 @@
-using Dispatcher
-using ResultTypes
-using Compat.Test
-using Memento
-using IterTools
-using Compat.Distributed
 using DeferredFutures
-import LightGraphs
-
-using Compat: @__MODULE__
+using Dispatcher
+using Distributed
+using IterTools
+using LightGraphs
+using Memento
+using ResultTypes
 using ResultTypes: iserror
+using Test
 
 const logger = getlogger(@__MODULE__)
 const LOG_LEVEL = "info" # could also be "debug", "notice", "warn", etc
@@ -34,16 +32,16 @@ end # module
 
         push!(g, node1)
         push!(g, node2)
-        LightGraphs.add_edge!(g, node1, node2)
+        add_edge!(g, node1, node2)
         @test length(g) == 2
         @test length(g.nodes) == 2
-        @test LightGraphs.nv(g.graph) == 2
+        @test nv(g.graph) == 2
         @test g.nodes[node1] == 1
         @test g.nodes[node2] == 2
         @test g.nodes[1] === node1
         @test g.nodes[2] === node2
-        @test LightGraphs.ne(g.graph) == 1
-        @test collect(LightGraphs.outneighbors(g.graph, 1)) == [2]
+        @test ne(g.graph) == 1
+        @test collect(outneighbors(g.graph, 1)) == [2]
     end
 
     @testset "Equality" begin
