@@ -277,11 +277,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7.0-DEV.2738"
-                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
-                else
-                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
-                end
+                @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
             end
 
             @testset "Op (kwargs, with semicolon)" begin
@@ -300,11 +296,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7.0-DEV.2738"
-                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
-                else
-                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
-                end
+                @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
             end
 
             @testset "Op (using Type)" begin
@@ -672,13 +664,7 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                # Behaviour of `asyncmap` on exceptions changed
-                # between julia 0.5 and 0.6
-                if VERSION < v"0.6.0-"
-                    @test_throws CompositeException run!(exec, [h])
-                else
-                    @test_throws DependencyError run!(exec, [h])
-                end
+                @test_throws DependencyError run!(exec, [h])
                 prepare!(exec, DispatchGraph(h))
                 @test any(run!(exec, [h]; throw_error=false)) do result
                     iserror(result) && isa(unwrap_error(result), DependencyError)
@@ -724,13 +710,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    # Behaviour of `asyncmap` on exceptions changed
-                    # between julia 0.5 and 0.6
-                    if VERSION < v"0.6.0-"
-                        @test_throws CompositeException run!(exec, [h])
-                    else
-                        @test_throws DependencyError run!(exec, [h])
-                    end
+                    @test_throws DependencyError run!(exec, [h])
 
                     prepare!(exec, DispatchGraph(h))
                     @test any(run!(exec, [h]; throw_error=false)) do result

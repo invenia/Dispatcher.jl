@@ -667,16 +667,9 @@ Base.summary(node::CollectNode) = value_summary(node)
 #   a, b = x
 #   @assert a == IndexNode(x, 1)
 #   @assert b == IndexNode(x, 2)
-if VERSION < v"0.7"
-    Base.start(node::DispatchNode) = 1
-    Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
-    Base.done(node::DispatchNode, state::Int) = false
-else
-    function Base.iterate(node::DispatchNode, state::Int=1)
-        return IndexNode(node, state), state + 1
-    end
+function Base.iterate(node::DispatchNode, state::Int=1)
+    return IndexNode(node, state), state + 1
 end
-
 
 Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
 
