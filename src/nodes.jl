@@ -678,7 +678,6 @@ else
     function Base.iterate(node::DispatchNode, state::Int=1)
         return IndexNode(node, state), state + 1
     end
-    Base.IteratorEltype(::Type{<:DispatchNode}) = Base.HasEltype()
 end
 
 Base.eltype(::Type{T}) where {T<:DispatchNode} = IndexNode{T}
