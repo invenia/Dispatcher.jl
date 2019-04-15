@@ -680,8 +680,7 @@ else
     end
 end
 
-
-Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
+Base.eltype(::Type{T}) where {T<:DispatchNode} = IndexNode{T}
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
