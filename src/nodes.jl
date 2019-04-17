@@ -671,7 +671,11 @@ function Base.iterate(node::DispatchNode, state::Int=1)
     return IndexNode(node, state), state + 1
 end
 
+<<<<<<< HEAD
 Base.eltype(node::T) where {T<:DispatchNode} = IndexNode{T}
+=======
+Base.eltype(::Type{T}) where {T<:DispatchNode} = IndexNode{T}
+>>>>>>> master
 
 Base.getindex(node::DispatchNode, index::Int) = IndexNode(node, index)
 
