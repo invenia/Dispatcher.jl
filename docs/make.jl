@@ -3,7 +3,7 @@ using Documenter, Dispatcher
 makedocs(
     # options
     modules = [Dispatcher],
-    format = :html,
+    format = Documenter.HTML(prettyurls=(get(ENV, "CI", nothing) == "true")),
     pages = [
         "Home" => "index.md",
         "Manual" => "pages/manual.md",
@@ -16,8 +16,5 @@ makedocs(
 
 deploydocs(
     repo = "github.com/invenia/Dispatcher.jl.git",
-    julia = "0.6",
     target = "build",
-    deps = nothing,
-    make = nothing,
 )

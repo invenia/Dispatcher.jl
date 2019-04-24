@@ -1,4 +1,4 @@
-import Compat.Distributed: wrap_on_error, wrap_retry
+import Distributed: wrap_on_error, wrap_retry
 
 """
 An `Executor` handles execution of [`DispatchGraph`](@ref)s.

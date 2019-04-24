@@ -2,6 +2,15 @@ __precompile__()
 
 module Dispatcher
 
+using AutoHashEquals
+using DataStructures
+using DeferredFutures
+using Distributed
+using IterTools
+using LightGraphs
+using Memento
+using ResultTypes
+
 export DispatchGraph,
     DispatchNode,
     DispatchResult,
@@ -27,20 +36,10 @@ export Executor,
 
 export @op
 
-using AutoHashEquals
-using Compat
-using DataStructures
-using DeferredFutures
-using IterTools
-using LightGraphs
-using Memento
-using ResultTypes
-using Compat.Distributed
-
 abstract type DispatcherError <: Exception end
 
-const _IdDict = VERSION < v"0.7" ? ObjectIdDict : IdDict{Any, Any}
-typed_stack(t) = VERSION < v"0.7" ? Stack(t) : Stack{t}()
+const _IdDict = IdDict{Any, Any}
+typed_stack(t) = Stack{t}()
 const logger = getlogger(@__MODULE__)
 const reset! = DeferredFutures.reset!  # DataStructures also exports this.
 

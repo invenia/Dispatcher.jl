@@ -1,14 +1,12 @@
-using Dispatcher
-using ResultTypes
-using Compat.Test
-using Memento
-using IterTools
-using Compat.Distributed
 using DeferredFutures
-import LightGraphs
-
-using Compat: @__MODULE__
+using Dispatcher
+using Distributed
+using IterTools
+using LightGraphs
+using Memento
+using ResultTypes
 using ResultTypes: iserror
+using Test
 
 const logger = getlogger(@__MODULE__)
 const LOG_LEVEL = "info" # could also be "debug", "notice", "warn", etc
@@ -34,16 +32,16 @@ end # module
 
         push!(g, node1)
         push!(g, node2)
-        LightGraphs.add_edge!(g, node1, node2)
+        add_edge!(g, node1, node2)
         @test length(g) == 2
         @test length(g.nodes) == 2
-        @test LightGraphs.nv(g.graph) == 2
+        @test nv(g.graph) == 2
         @test g.nodes[node1] == 1
         @test g.nodes[node2] == 2
         @test g.nodes[1] === node1
         @test g.nodes[2] === node2
-        @test LightGraphs.ne(g.graph) == 1
-        @test collect(LightGraphs.outneighbors(g.graph, 1)) == [2]
+        @test ne(g.graph) == 1
+        @test collect(outneighbors(g.graph, 1)) == [2]
     end
 
     @testset "Equality" begin
@@ -279,11 +277,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7.0-DEV.2738"
-                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
-                else
-                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
-                end
+                @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
             end
 
             @testset "Op (kwargs, with semicolon)" begin
@@ -302,11 +296,7 @@ end
                 @test isa(graph_nodes[1], Op)
                 @test graph_nodes[1].func == split
                 @test collect(graph_nodes[1].args) == ["foo bar"]
-                if VERSION < v"0.7.0-DEV.2738"
-                    @test collect(graph_nodes[1].kwargs) == [(:limit, 1)]
-                else
-                    @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
-                end
+                @test collect(graph_nodes[1].kwargs) == [(:limit => 1)]
             end
 
             @testset "Op (using Type)" begin
@@ -674,13 +664,7 @@ end
 
                 result_truth = factorial(2 * (max(3, 4))) / 2
 
-                # Behaviour of `asyncmap` on exceptions changed
-                # between julia 0.5 and 0.6
-                if VERSION < v"0.6.0-"
-                    @test_throws CompositeException run!(exec, [h])
-                else
-                    @test_throws DependencyError run!(exec, [h])
-                end
+                @test_throws DependencyError run!(exec, [h])
                 prepare!(exec, DispatchGraph(h))
                 @test any(run!(exec, [h]; throw_error=false)) do result
                     iserror(result) && isa(unwrap_error(result), DependencyError)
@@ -726,13 +710,7 @@ end
 
                     result_truth = factorial(2 * (max(3, 4))) / 2
 
-                    # Behaviour of `asyncmap` on exceptions changed
-                    # between julia 0.5 and 0.6
-                    if VERSION < v"0.6.0-"
-                        @test_throws CompositeException run!(exec, [h])
-                    else
-                        @test_throws DependencyError run!(exec, [h])
-                    end
+                    @test_throws DependencyError run!(exec, [h])
 
                     prepare!(exec, DispatchGraph(h))
                     @test any(run!(exec, [h]; throw_error=false)) do result

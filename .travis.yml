@@ -4,9 +4,8 @@ os:
   - linux
   - osx
 julia:
-  - 0.6
-  - 0.7
   - 1.0
+  - 1.1
   - nightly
 matrix:
   allow_failures:
@@ -25,16 +24,14 @@ notifications:
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Dispatcher"); Pkg.test("Dispatcher"; coverage=true)'
 after_success:
   # push coverage results to Codecov
-  - |
-    julia -e '
-      VERSION >= v"0.7.0-DEV.3656" && using Pkg
-      VERSION >= v"0.7.0-DEV.5183" || cd(Pkg.dir("Dispatcher"))
-      Pkg.add("Coverage"); using Coverage
-      Codecov.submit(process_folder())'
+  - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
 # generate docs
-  - |
-    julia -e '
-      VERSION >= v"0.7.0-DEV.3656" && using Pkg
-      VERSION >= v"0.7.0-DEV.5183" || cd(Pkg.dir("Dispatcher"))
-      Pkg.add("Documenter");
-      include(joinpath("docs", "make.jl"))'
+jobs:
+  include:
+    - stage: "Documentation"
+      julia: 1.0
+      script:
+        - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+        - julia --project=docs/ docs/make.jl
+      after_success: skip
+      

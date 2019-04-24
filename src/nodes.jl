@@ -1,6 +1,3 @@
-import Compat.Iterators: filter
-using Compat: findfirst
-
 """
 `DependencyError` wraps any errors (and corresponding traceback)
 that occur on the dependency of a given nodes.
@@ -268,7 +265,7 @@ Return all dependencies which must be ready before executing this `Op`.
 This will be all [`DispatchNode`](@ref)s in the `Op`'s function `args` and `kwargs`.
 """
 function dependencies(op::Op)
-    filter(x->isa(x, DispatchNode), Iterators.flatten((
+    Iterators.filter(x->isa(x, DispatchNode), Iterators.flatten((
         op.args,
         imap(pair->pair[2], op.kwargs)
     )))
@@ -670,14 +667,8 @@ Base.summary(node::CollectNode) = value_summary(node)
 #   a, b = x
 #   @assert a == IndexNode(x, 1)
 #   @assert b == IndexNode(x, 2)
-if VERSION < v"0.7"
-    Base.start(node::DispatchNode) = 1
-    Base.next(node::DispatchNode, state::Int) = IndexNode(node, state), state + 1
-    Base.done(node::DispatchNode, state::Int) = false
-else
-    function Base.iterate(node::DispatchNode, state::Int=1)
-        return IndexNode(node, state), state + 1
-    end
+function Base.iterate(node::DispatchNode, state::Int=1)
+    return IndexNode(node, state), state + 1
 end
 
 Base.eltype(::Type{T}) where {T<:DispatchNode} = IndexNode{T}
