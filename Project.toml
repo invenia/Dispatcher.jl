@@ -1,6 +1,6 @@
 name = "Dispatcher"
 uuid = "a48d5fe2-965b-541b-8ad8-ab19b69f3f25"
-version = "1.0.0"
+version = "1.0.1"
 
 [deps]
 AutoHashEquals = "15f4f7f2-30c1-5605-9d31-71845cf9641f"
