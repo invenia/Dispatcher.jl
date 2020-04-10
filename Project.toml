@@ -15,7 +15,7 @@ ResultTypes = "08a2b407-ddc3-586a-afd6-c784ad1fffe2"
 [compat]
 AutoHashEquals = "0.1.2, 0.2"
 DataStructures = "0.5, 0.6, 0.7, 0.8, 0.9, 0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17"
-DeferredFutures = "0.6"
+DeferredFutures = "0.6, 1"
 IterTools = "0.1, 0.2, 1"
 LightGraphs = "0.7, 0.8, 0.9, 0.10, 0.11, 0.12, 0.13, 0.14, 1"
 Memento = "0.7, 0.8, 0.9, 0.10, 0.11, 0.12, 0.13, 1"
