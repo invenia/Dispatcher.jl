@@ -1,7 +1,6 @@
 # Dispatcher
 
-[![Build Status](https://travis-ci.org/invenia/Dispatcher.jl.svg?branch=master)](https://travis-ci.org/invenia/Dispatcher.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/urs1v0cp8shgdq3t/branch/master?svg=true)](https://ci.appveyor.com/project/iamed2/dispatcher-jl/branch/master)
+[![CI](https://github.com/invenia/Dispatcher.jl/workflows/CI/badge.svg)](https://github.com/invenia/Dispatcher.jl/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/invenia/Dispatcher.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/invenia/Dispatcher.jl)
 
 Dispatcher is a tool for building and executing a computation graph given a series of dependent operations.
